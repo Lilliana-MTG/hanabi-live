@@ -32,8 +32,7 @@ func chatCommandInit() {
 	chatCommandMap["badhere"] = chatBadHere
 	chatCommandMap["wrongchannel"] = chatWrongChannel
 
-	// Table-only commands
-	chatCommandMap["changevariant"] = chatChangeVariant
+	// Table-only commands (pregame only, table owner only)
 	chatCommandMap["s"] = chatS
 	chatCommandMap["s2"] = chatS2
 	chatCommandMap["s3"] = chatS3
@@ -41,11 +40,18 @@ func chatCommandInit() {
 	chatCommandMap["s5"] = chatS5
 	chatCommandMap["s6"] = chatS6
 	chatCommandMap["startin"] = chatStartIn
-	chatCommandMap["pause"] = chatPause
-	chatCommandMap["unpause"] = chatUnpause
-	chatCommandMap["lastmove"] = chatLastMove
+
+	// Table-only commands (pregame or game)
 	chatCommandMap["findvariant"] = chatFindVariant
 	chatCommandMap["randomvariant"] = chatFindVariant
+
+	// Table-only commands (game only)
+	chatCommandMap["pause"] = chatPause
+	chatCommandMap["unpause"] = chatUnpause
+
+	// Table-only commands (replay only)
+	chatCommandMap["tags"] = chatTags
+	chatCommandMap["taglist"] = chatTags
 
 	// Discord-only commands
 	chatCommandMap["here"] = chatHere
@@ -91,6 +97,6 @@ func chatCommand(s *Session, d *CommandData, t *Table) {
 }
 
 func chatCommandWebsiteOnly(s *Session, d *CommandData, t *Table) {
-	chatServerSend("You cannot perform that command from Discord; "+
-		"please use the website instead.", d.Room)
+	msg := "You cannot perform that command from Discord; please use the website instead."
+	chatServerSend(msg, d.Room)
 }

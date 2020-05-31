@@ -49,7 +49,7 @@ func httpScores(c *gin.Context) {
 		http.Error(w, "Error: You must specify a player.", http.StatusNotFound)
 		return
 	}
-	normalizedUsername := normalizeUsername(player)
+	normalizedUsername := normalizeString(player)
 
 	// Check if the player exists
 	var user User
@@ -155,7 +155,7 @@ func httpScores(c *gin.Context) {
 	variantStatsList := make([]UserVariantStats, 0)
 	for _, name := range variantsList {
 		variant := variants[name]
-		maxScore := 5 * len(variant.Suits)
+		maxScore := len(variant.Suits) * PointsPerSuit
 		variantStats := UserVariantStats{
 			ID:       variant.ID,
 			Name:     name,

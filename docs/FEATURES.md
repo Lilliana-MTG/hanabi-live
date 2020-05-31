@@ -8,14 +8,16 @@
 
 1. [Basic How-To](#basic-how-to)
 2. [Major Features](#major-features)
-3. [Custom Game Options](#custom-game-options)
-4. [Other Options](#other-options)
-5. [Sounds](#sounds)
-6. [Keyboard Shortcuts](#keyboard-shortcuts)
-7. [Similar Deals and Competitive Play](#similar-deals-and-competitive-play)
-8. [Chat](#chat)
-9. [Friends](#friends)
-10. [Research & Bots](#research--bots)
+3. [Notes](#notes)
+4. [Custom Game Options](#custom-game-options)
+5. [Other Options](#other-options)
+6. [Sounds](#sounds)
+7. [Keyboard Shortcuts](#keyboard-shortcuts)
+8. [Similar Deals and Competitive Play](#similar-deals-and-competitive-play)
+9. [Chat](#chat)
+10. [Friends](#friends)
+11. [Tags](#tags)
+12. [Research & Bots](#research--bots)
 
 <br />
 
@@ -64,30 +66,15 @@
 * The pips and boxes will automatically disappear as positive clues and negative clues "touch" the card.
 * The pips and boxes will automatically be crossed out if all the particular cards for that suit/rank are visible.
 
+#### Critical Indicator
+
+A "❗" icon will appear on cards that are "critical", meaning that there is only one copy of that card left.
+
 #### Clue Log
 
 * A clue log is shown in the top-right-hand corner.
 * When the cursor is hovering over a card, the positive clues that have touched the card will turn white and the negative clues that have touched the card will turn red.
 * You can click on an entry in the clue log to go to the turn when the clue was given.
-
-#### Notes
-
-* Players can right-click on any card to add a note to it. Afterward, by hovering over a card, a tooltip will appear with the written note.
-* This is useful for storing contextual information about a card for later.
-* Notes can also be written during an in-game replay as a way to track the card as it moves throughout your hand.
-* If the note matches the name of a card (e.g. "red 1", "r1", etc.), the card face will change to match. (The card face will automatically be deactivated if a clue is received that falsifies the note.) If this is undesired, append a question mark to the end of your note (e.g. "r1?").
-* Since notes are tracked by the server, players can switch computers mid-game and keep any notes written.
-* Notes are saved in the database and will persist into the replay.
-* Everyone's notes are combined and shown to spectators, which is fun to see.
-* There are also some keyboard shortcuts for making notes:
-  * Shift + Right-click --> f
-    * "f" is a common abbreviation for "this card is *Finessed*".
-    * This will also draw a special border around the card.
-  * Alt + Right-click --> cm
-    * "cm" is a common abbreviation for "this card is *Chop Moved*".
-    * This will also draw a special border around the card.
-  * Ctrl + Shift + Right-click --> [previously entered note]
-    * If you need to put the same note on multiple cards, enter the note on the first card, and then use this hotkey on the rest of the cards.
 
 #### Spectators
 
@@ -158,6 +145,53 @@
 #### 6-Player Games
 
 * Hanabi is supposed to be played with 2-5 players. But nobody can tell me what to do.
+
+<br />
+
+## Notes
+
+#### Basic Description
+
+* When in the middle of an ongoing game, players can right-click on any card to add a note to it. Afterward, by hovering over a card, a tooltip will appear with the written note.
+* This is useful for storing contextual information about a card for later.
+* Notes can also be written during an in-game replay as a way to track the card as it moves throughout your hand.
+* Since notes are tracked by the server, players can switch computers mid-game and keep any notes written.
+* Notes are saved in the database and will persist into the replay.
+* Everyone's notes are combined and shown to spectators, which is fun to see.
+
+#### Card Identity Notes
+
+* If the note matches the name of a card (e.g. "red 1", "r1", etc.), the card face will change to match. (The card face will automatically be deactivated if a clue is received that falsifies the note.) If this is undesired, append a question mark to the end of your note (e.g. "r1?").
+  * Black is abbreviated as "k".
+  * Rainbow, muddy rainbow, and cocoa rainbow are abbreviated as "m".
+  * Pink, light pink, and gray pink are abbreviated as "i".
+  * Brown is abbreviated as "n".
+  * The "dark" suits are abbreviated the same as their normal counterparts.
+  * Gray is abbreviated as "a".
+
+#### Special Note Borders
+
+* A note of "f" can be written to indicate that the card is "Finessed". This will draw a special border around the card.
+* A note of "cm" can be written to indicate that the card is "Chop Moved". This will draw a special border around the card.
+
+#### Other Special Notes
+
+* A note of "kt", "trash", "stale", or "bad" can be written to indicate that the card is "Trash". This will draw a special image on the card.
+* A note of "fixme" can be be written to indicate that the card needs to be given a "fix clue" at some point in the future. This will draw a special image on the card.
+* A note of "blank" can be written on a card to make it look like the deck back.
+* A note of "unclued" can be written to manually remove the border that normally appears around a card when it is touched by one or more clues.
+
+#### Note Shortcuts
+
+* There are also some keyboard shortcuts for making notes:
+  * Shift + Right-click --> f
+    * "f" is a common abbreviation for "this card is *Finessed*".
+    * This will also draw a special border around the card.
+  * Alt + Right-click --> cm
+    * "cm" is a common abbreviation for "this card is *Chop Moved*".
+    * This will also draw a special border around the card.
+  * Ctrl + Shift + Right-click --> [previously entered note]
+    * If you need to put the same note on multiple cards, enter the note on the first card, and then use this hotkey on the rest of the cards.
 
 <br />
 
@@ -333,6 +367,19 @@ If you are playing with the <a href="https://github.com/Zamiell/hanabi-conventio
 * When there are a lot of users online and a lot of games going on, it can be cumbersome to find the people you care about. The website supports adding specific people to your friends list with the `/friend` command.
 * Your friends will be listed alphabetically at the top of the user list.
 * Games that contain one or more of your friends will be sorted at the top of the games list.
+* If you have one or more friends, a "Show History of Friends" button will appear on the history screen.
+
+<br />
+
+## Tags
+
+* Attaching notes to cards is useful for keeping track of things in the middle of a game. But what if you want to put a note on an entire game? That's where tags come in.
+* By using the `/tag [tag]` command, you can attach arbitrary notes to a specific game so that you can more-easily find it later.
+* For example, if you performed a massive *Quadruple Finesse*, then you could do a `/tag Quadruple Finesse`.
+* You can have an unlimited amount of tags per game. Anyone can add a tag to a game, regardless of whether they played in it or not. Everyone's tags are shared.
+* You can add tags during an ongoing game. The server will not reveal what the tag is to the other players (in order to avoid leaking information about the game).
+* Tags added during a replay will echo the everyone in the replay.
+* You can use the `/tagsearch [tag]` command to search through all games for a specific tag.
 
 <br />
 

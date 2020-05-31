@@ -142,14 +142,12 @@ func main() {
 	if err := models.Metadata.TestDatabase(); err != nil {
 		if strings.Contains(err.Error(), "Unknown database") {
 			logger.Fatal("The \"" + dbName + "\" database does not exist. " +
-				"Please follow the instructions located in the \"docs/INSTALL.md\" file " +
-				"in order to set up the database.")
+				"Please follow the instructions located in the \"docs/INSTALL.md\" file in order to set up the database.")
 			return
 		}
 
 		logger.Error("Failed to run the database test query:", err)
-		logger.Fatal("Try re-running the \"install/install_database_schema.sh\" script " +
-			"in order to re-initialize the database.")
+		logger.Fatal("Try re-running the \"install/install_database_schema.sh\" script in order to re-initialize the database.")
 		return
 	}
 
@@ -159,6 +157,9 @@ func main() {
 
 	// Initialize the action functions command map (in "command_action.go")
 	actionsFunctionsInit()
+
+	// Initialize the replay action functions command map (in "command_replay_action.go")
+	replayActionsFunctionsInit()
 
 	// Initialize "Detrimental Character Assignments" (in "characters.go")
 	characterInit()
@@ -184,9 +185,6 @@ func main() {
 
 	// Initialize chat commands (in "chatCommand.go")
 	chatCommandInit()
-
-	// Load the current speedrun records (in "speedrun.go")
-	speedrunInit()
 
 	// Record the time that the server started
 	datetimeStarted = time.Now()

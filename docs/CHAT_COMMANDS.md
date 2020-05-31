@@ -11,11 +11,12 @@ If you need general help with the website, then read the [features page](FEATURE
 | /help                    | Get the link to this page
 | /discord                 | Get the link for the [Hanabi Discord server](https://discord.gg/FADvkJp)
 | /rules                   | Get the link for the [Hanabi Community Guidelines](https://github.com/Zamiell/hanabi-live/blob/master/docs/COMMUNITY_GUIDELINES.md)
-| /new                     | Displays a stock message for new users, encouraging them to join the Discord server
+| /new                     | Displays a stock message for new users, encouraging them to join the Hyphen-ated group
 | /replay [game ID] [turn] | Generate a link to a replay so that you can share it with others
 | /random [min] [max]      | Get a random number
 | /uptime                  | Get how long the server has been online
 | /timeleft                | Get how much time is left before the server shuts down
+| /shrug                   | ¯\\_(ツ)_/¯
 
 <br />
 
@@ -27,39 +28,63 @@ If you need general help with the website, then read the [features page](FEATURE
 | /r [msg]              | Reply to a private message
 | /friend [username]    | Add someone to your friends list
 | /unfriend [username]  | Remove someone from your friends list
+| /friends              | Show a list of all your friends
 
 <br />
 
 ### Pre-game commands (table-owner-only)
 
-| Command                  | Description
-| ------------------------ |------------
-| /changevariant [variant] | Change the variant of the current game
-| /s                       | Automatically start the game when the next person joins
-| /s2                      | Automatically start the game when it has 2 players
-| /s3                      | Automatically start the game when it has 3 players
-| /s4                      | Automatically start the game when it has 4 players
-| /s5                      | Automatically start the game when it has 5 players
-| /s6                      | Automatically start the game when it has 6 players
-| /startin [minutes]       | Automatically start the game in the provided amount of minutes
+| Command               | Description
+| --------------------- |------------
+| /setvariant [variant] | Change the variant of the current game
+| /s                    | Automatically start the game when the next person joins
+| /s2                   | Automatically start the game when it has 2 players
+| /s3                   | Automatically start the game when it has 3 players
+| /s4                   | Automatically start the game when it has 4 players
+| /s5                   | Automatically start the game when it has 5 players
+| /s6                   | Automatically start the game when it has 6 players
+| /startin [minutes]    | Automatically start the game in the provided amount of minutes
 
 <br />
 
 ### Pre-game or game commands
 
 | Command      | Description
-| -------------|------------
+| ------------ |------------
 | /findvariant | Find a random variant that everyone needs the max score in
+
+<br />
+
+### Pre-game, game, and replay commands (table-owner-only)
+
+| Command    | Description
+| ---------- |------------
+| /setleader | Change the owner of the game (or the leader if it is a shared replay)
 
 <br />
 
 ### Game commands
 
-| Command   | Description
-| --------- | -----------
-| /pause    | Pause the game (can be done on any turn)
-| /unpause  | Unpause the game
-| /lastmove | Show long how it has been since the last move
+| Command    | Description
+| ---------- | -----------
+| /pause     | Pause the game (can be done on any turn)
+| /unpause   | Unpause the game
+
+<br />
+
+### Game or replay commands
+
+| Command    | Description
+| ---------- | -----------
+| /tag [tag] | Tag this game with a word or phrase so that you can find it later
+
+<br />
+
+### Replay commands
+
+| Command | Description
+| ------- | -----------
+| /tags   | Show all of the tags for this game
 
 <br />
 

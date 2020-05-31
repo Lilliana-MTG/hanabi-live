@@ -57,8 +57,8 @@ commands.set('friends', (data: FriendsData) => {
 commands.set('game', (data: Game) => {
   globals.game = data;
 
-  // The baseTime and timePerTurn come in seconds, so convert them to milliseconds
-  globals.game.baseTime *= 1000;
+  // The timeBase and timePerTurn come in seconds, so convert them to milliseconds
+  globals.game.timeBase *= 1000;
   globals.game.timePerTurn *= 1000;
 
   pregame.draw();
@@ -78,7 +78,7 @@ commands.set('gameHistory', (dataArray: GameHistory[]) => {
   // we clicked on the "Show More History" button
   if (globals.showMoreHistoryClicked) {
     globals.showMoreHistoryClicked = false;
-    history.draw();
+    history.draw(false);
   }
 
   const shownGames = Object.keys(globals.history).length;
@@ -87,7 +87,20 @@ commands.set('gameHistory', (dataArray: GameHistory[]) => {
   if (shownGames === globals.totalGames) {
     $('#lobby-history-show-more').hide();
   }
-  $('#lobby-history-show-all').attr('href', `/history/${globals.username}`);
+});
+
+commands.set('gameHistoryFriends', (dataArray: GameHistory[]) => {
+  // data will be an array of all of the games that our friends have previously played
+  for (const data of dataArray) {
+    globals.historyFriends[data.id] = data;
+  }
+
+  // The server sent us more games because
+  // we clicked on the "Show More History" button
+  if (globals.showMoreHistoryClicked) {
+    globals.showMoreHistoryClicked = false;
+    history.draw(true);
+  }
 });
 
 commands.set('gameHistoryOtherScores', (data: GameHistory[]) => {
@@ -122,8 +135,8 @@ commands.set('table', (data: Table) => {
 });
 
 const tableSet = (data: Table) => {
-  // The baseTime and timePerTurn come in seconds, so convert them to milliseconds
-  data.baseTime *= 1000;
+  // The timebase and timePerTurn come in seconds, so convert them to milliseconds
+  data.timeBase *= 1000;
   data.timePerTurn *= 1000;
 
   globals.tableMap.set(data.id, data);

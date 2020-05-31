@@ -95,6 +95,9 @@ func commandTableStart(s *Session, d *CommandData) {
 	// Start the idle timeout
 	go t.CheckIdle()
 
+	// Record the stack directions
+	t.NotifyStackDirections()
+
 	g.InitDeck()
 
 	// Handle setting the seed
@@ -182,8 +185,7 @@ func commandTableStart(s *Session, d *CommandData) {
 		// Log the deal (so that it can be distributed to others if necessary)
 		logger.Info("--------------------------------------------------")
 		logger.Info("Deal for seed: " + g.Seed + " (from top to bottom)")
-		logger.Info("(cards are dealt to a player until their hand fills up before " +
-			"moving on to the next one)")
+		logger.Info("(cards are dealt to a player until their hand fills up before moving on to the next one)")
 		for i, c := range g.Deck {
 			logger.Info(strconv.Itoa(i+1) + ") " + c.Name(g))
 		}
@@ -264,7 +266,7 @@ func commandTableStart(s *Session, d *CommandData) {
 
 	// Now that all of the initial game actions have been performed, mark that the game has started
 	t.Running = true
-	t.DatetimeStarted = time.Now()
+	g.DatetimeStarted = time.Now()
 
 	// If we are replaying an existing game up to a certain point,
 	// emulate all of the actions until turn N

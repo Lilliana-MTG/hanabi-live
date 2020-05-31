@@ -247,17 +247,30 @@ func websocketConnect(ms *melody.Session) {
 	}
 
 	// Send the user's game history
-	// (only the last 10 games to prevent wasted bandwidth)
-	var history []*GameHistory
+	// (but only the last 10 games to prevent wasted bandwidth)
+	var gameHistoryList []*GameHistory
 	if v, err := models.Games.GetUserHistory(s.UserID(), 0, 10, false); err != nil {
 		logger.Error("Failed to get the history for user \""+s.Username()+"\":", err)
 		s.Error(DefaultErrorMsg)
 		return
 	} else {
-		history = v
+		gameHistoryList = v
 	}
-	history = historyFillVariants(history)
-	s.NotifyGameHistory(history, false)
+	s.Emit("gameHistory", &gameHistoryList)
+
+	// Send the game history of the user's friends
+	// (but only the last 10 games to prevent wasted bandwidth)
+	if len(friends) > 0 {
+		var gameHistoryFriendsList []*GameHistory
+		if v, err := models.Games.GetFriendsHistory(s.Friends(), 0, 10, false); err != nil {
+			logger.Error("Failed to get the history for the friends of user \""+s.Username()+"\":", err)
+			s.Error(DefaultErrorMsg)
+			return
+		} else {
+			gameHistoryFriendsList = v
+		}
+		s.Emit("gameHistoryFriends", &gameHistoryFriendsList)
+	}
 
 	// If they are playing in an ongoing game, join it
 	if playingInOngoingGame != -1 {

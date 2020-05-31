@@ -18,7 +18,7 @@ type CommandData struct {
 	Password             string `json:"password"`
 	Variant              string `json:"variant"`
 	Timed                bool   `json:"timed"`
-	BaseTime             int    `json:"baseTime"`    // In seconds
+	TimeBase             int    `json:"timeBase"`    // In seconds
 	TimePerTurn          int    `json:"timePerTurn"` // In seconds
 	Speedrun             bool   `json:"speedrun"`
 	CardCycle            bool   `json:"cardCycle"`
@@ -94,6 +94,8 @@ func commandInit() {
 	commandMap["tableLeave"] = commandTableLeave
 	commandMap["tableUnattend"] = commandTableUnattend
 	commandMap["tableReattend"] = commandTableReattend
+	commandMap["tableSetVariant"] = commandTableSetVariant
+	commandMap["tableSetLeader"] = commandTableSetLeader
 	commandMap["tableStart"] = commandTableStart
 	commandMap["tableTerminate"] = commandTableTerminate
 	commandMap["tableSpectate"] = commandTableSpectate
@@ -111,13 +113,21 @@ func commandInit() {
 	commandMap["getName"] = commandGetName
 	commandMap["historyGetDeals"] = commandHistoryGetDeals
 	commandMap["historyGet"] = commandHistoryGet
+	commandMap["historyFriendsGet"] = commandHistoryFriendsGet
 	commandMap["replayCreate"] = commandReplayCreate
+	commandMap["tagSearch"] = commandTagSearch
 
-	// Game commands
+	// Game and replay commands
 	commandMap["getGameInfo1"] = commandGetGameInfo1
 	commandMap["getGameInfo2"] = commandGetGameInfo2
+	commandMap["tag"] = commandTag
+	commandMap["tagDelete"] = commandTagDelete
+
+	// Game commands
 	commandMap["action"] = commandAction
 	commandMap["note"] = commandNote
 	commandMap["pause"] = commandPause
+
+	// Replay commands
 	commandMap["replayAction"] = commandReplayAction
 }

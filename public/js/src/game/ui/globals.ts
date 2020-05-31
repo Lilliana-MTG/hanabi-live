@@ -32,11 +32,15 @@ export class Globals {
   replay: boolean = false;
   sharedReplay: boolean = false;
   databaseID: number = 0;
+  seed: string = '';
+  seeded: boolean = false;
+  datetimeStarted: Date = new Date();
+  datetimeFinished: Date = new Date();
 
   // Optional game settings
   // (sent in the "init" message)
   timed: boolean = false;
-  baseTime: number = 0;
+  timeBase: number = 0;
   timePerTurn: number = 0;
   speedrun: boolean = false;
   cardCycle: boolean = false;
@@ -64,6 +68,7 @@ export class Globals {
   cardsGotten: number = 0;
   cluesSpentPlusStrikes: number = 0;
   stackDirections: number[] = [];
+  numCardsPlayed: number = 0; // For "Throw It in a Hole" variants
 
   // UI elements
   ImageLoader: Loader | null = null;
@@ -96,6 +101,7 @@ export class Globals {
   sharedReplayLoading: boolean = false; // This is used to not animate cards when loading in
   hypothetical: boolean = false; // Whether or not we are in a hypothetical
   hypoActions: any[] = []; // An array of the actions in the current hypothetical
+  hypoRevealed: boolean = true; // Whether or not drawn cards should be revealed when drawn
 
   // Notes feature
   ourNotes: string[] = []; // Indexed by card order
@@ -159,8 +165,11 @@ export class Globals {
     this.replay = false;
     this.sharedReplay = false;
     this.databaseID = 0;
+    this.seed = '';
+    this.datetimeStarted = new Date();
+    this.datetimeFinished = new Date();
     this.timed = false;
-    this.baseTime = 0;
+    this.timeBase = 0;
     this.timePerTurn = 0;
     this.speedrun = false;
     this.cardCycle = false;
@@ -184,6 +193,7 @@ export class Globals {
     this.cardsGotten = 0;
     this.cluesSpentPlusStrikes = 0;
     this.stackDirections = [];
+    this.numCardsPlayed = 0;
     this.ImageLoader = null;
     this.stage = new Konva.Stage({ container: 'game' });
     this.layers = new Layers();
@@ -207,6 +217,7 @@ export class Globals {
     this.sharedReplayLoading = true;
     this.hypothetical = false;
     this.hypoActions = [];
+    this.hypoRevealed = true;
     this.ourNotes = [];
     this.allNotes = [];
     this.editingNote = null;

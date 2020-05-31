@@ -3,6 +3,7 @@ package main
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	melody "gopkg.in/olahol/melody.v1"
 )
@@ -323,7 +324,7 @@ func loadDatabaseToTable(s *Session, d *CommandData, t *Table) bool {
 		StartingPlayer:       options.StartingPlayer, // Legacy field for games prior to April 2020
 		Variant:              variant,
 		Timed:                options.Timed,
-		BaseTime:             options.BaseTime,
+		TimeBase:             options.TimeBase,
 		TimePerTurn:          options.TimePerTurn,
 		Speedrun:             options.Speedrun,
 		CardCycle:            options.CardCycle,
@@ -363,9 +364,9 @@ func loadJSONToTable(s *Session, d *CommandData, t *Table) {
 	if d.GameJSON.Options.Timed != nil {
 		timed = *d.GameJSON.Options.Timed
 	}
-	baseTime := 0
+	timeBase := 0
 	if d.GameJSON.Options.Timed != nil {
-		baseTime = *d.GameJSON.Options.BaseTime
+		timeBase = *d.GameJSON.Options.TimeBase
 	}
 	timePerTurn := 0
 	if d.GameJSON.Options.TimePerTurn != nil {
@@ -397,7 +398,7 @@ func loadJSONToTable(s *Session, d *CommandData, t *Table) {
 	t.Options = &Options{
 		Variant:              *d.GameJSON.Options.Variant,
 		Timed:                timed,
-		BaseTime:             baseTime,
+		TimeBase:             timeBase,
 		TimePerTurn:          timePerTurn,
 		Speedrun:             speedrun,
 		CardCycle:            cardCycle,
@@ -436,10 +437,15 @@ func newFakeSession(id int, name string) *Session {
 	keys["sessionID"] = id
 	keys["userID"] = id
 	keys["username"] = name
-	keys["admin"] = false
-	keys["firstTimeUser"] = false
-	keys["status"] = StatusPlaying
+	keys["muted"] = false
+	keys["status"] = StatusLobby
+	keys["friends"] = make(map[int]struct{})
+	keys["reverseFriends"] = make(map[int]struct{})
+	keys["inactive"] = false
 	keys["fakeUser"] = true
+	keys["rateLimitAllowance"] = RateLimitRate
+	keys["rateLimitLastCheck"] = time.Now()
+	keys["banned"] = false
 
 	return &Session{
 		&melody.Session{
@@ -455,8 +461,8 @@ func applyNotesToPlayers(s *Session, d *CommandData, g *Game) bool {
 		variant := variants[g.Options.Variant]
 		noteSize := variant.GetDeckSize() + len(variant.Suits)
 		if v, err := models.Games.GetNotes(d.GameID, len(g.Players), noteSize); err != nil {
-			logger.Error("Failed to get the notes from the database "+
-				"for game "+strconv.Itoa(d.GameID)+":", err)
+			logger.Error("Failed to get the notes from the database for game "+
+				strconv.Itoa(d.GameID)+":", err)
 			s.Error(InitGameFail)
 			return false
 		} else {
@@ -492,8 +498,8 @@ func emulateActions(s *Session, d *CommandData, t *Table) bool {
 	if d.Source == "id" {
 		// Get the actions from the database
 		if v, err := models.GameActions.GetAll(d.GameID); err != nil {
-			logger.Error("Failed to get the actions from the database "+
-				"for game "+strconv.Itoa(d.GameID)+":", err)
+			logger.Error("Failed to get the actions from the database for game "+
+				strconv.Itoa(d.GameID)+":", err)
 			s.Error(InitGameFail)
 			return false
 		} else {

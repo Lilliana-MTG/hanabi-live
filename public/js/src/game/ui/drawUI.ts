@@ -6,7 +6,6 @@ import {
   ACTION,
   CLUE_TYPE,
   LABEL_COLOR,
-  REPLAY_ACTION_TYPE,
   REPLAY_ARROW_ORDER,
   STACK_BASE_RANK,
 } from '../../constants';
@@ -15,6 +14,7 @@ import Arrow from './Arrow';
 import * as arrows from './arrows';
 import backToLobby from './backToLobby';
 import Button from './Button';
+import Button2 from './Button2';
 import ButtonGroup from './ButtonGroup';
 import CardLayout from './CardLayout';
 import ClickArea from './ClickArea';
@@ -45,6 +45,7 @@ import StrikeX from './StrikeX';
 import * as timer from './timer';
 import TimerDisplay from './TimerDisplay';
 import * as tooltips from './tooltips';
+import * as reversible from './variants/reversible';
 
 interface Values {
   x: number;
@@ -357,7 +358,7 @@ const drawPlayStacks = () => {
         const colorList = suit.clueColors.map((color) => color.abbreviation).join('/');
         text += ` [${colorList}]`;
       }
-      if (globals.variant.name.startsWith('Up or Down')) {
+      if (reversible.isUpOrDown()) {
         text = '';
       }
 
@@ -691,7 +692,7 @@ const drawDeck = () => {
     width: deckValues.w! * winW,
     height: deckValues.h! * winH,
     stroke: 'yellow',
-    cornerRadius: 6,
+    cornerRadius: 0.01 * winH,
     strokeWidth: 10,
     visible: false,
   });
@@ -778,6 +779,7 @@ const drawScoreArea = () => {
     text: 'Score',
     x: labelX * winW,
     y: 0.045 * winH,
+    visible: !globals.variant.name.startsWith('Throw It in a Hole') || globals.replay,
   });
   globals.elements.scoreArea.add(scoreTextLabel);
 
@@ -785,6 +787,7 @@ const drawScoreArea = () => {
     text: '0',
     x: (labelX + labelSpacing) * winW,
     y: 0.045 * winH,
+    visible: !globals.variant.name.startsWith('Throw It in a Hole') || globals.replay,
   });
   globals.elements.scoreArea.add(globals.elements.scoreNumberLabel!);
 
@@ -796,6 +799,22 @@ const drawScoreArea = () => {
     visible: !globals.variant.name.startsWith('Throw It in a Hole') || globals.replay,
   });
   globals.elements.scoreArea.add(globals.elements.maxScoreNumberLabel!);
+
+  const playsTextLabel = basicTextLabel.clone({
+    text: 'Plays',
+    x: labelX * winW,
+    y: 0.045 * winH,
+    visible: globals.variant.name.startsWith('Throw It in a Hole') && !globals.replay,
+  });
+  globals.elements.scoreArea.add(playsTextLabel);
+
+  globals.elements.playsNumberLabel = basicNumberLabel.clone({
+    text: '0',
+    x: (labelX + labelSpacing) * winW,
+    y: 0.045 * winH,
+    visible: globals.variant.name.startsWith('Throw It in a Hole') && !globals.replay,
+  });
+  globals.elements.scoreArea.add(globals.elements.playsNumberLabel!);
 
   const cluesTextLabel = basicTextLabel.clone({
     text: 'Clues',
@@ -1071,9 +1090,8 @@ const drawSharedReplay = () => {
       return;
     }
 
-    globals.lobby.conn!.send('replayAction', {
+    globals.lobby.conn!.send('tableSetLeader', {
       tableID: globals.lobby.tableID,
-      type: REPLAY_ACTION_TYPE.LEADER_TRANSFER,
       name: selectedSpectator,
     });
   });
@@ -1769,11 +1787,11 @@ const drawHypotheticalArea = () => {
   // The "Back 1 Turn" button
   const hypoBackButtonValues = {
     x: spectatorsLabelValues.x + 0.04,
-    y: bottomLeftButtonValues.y + bottomLeftButtonValues.h! + 0.01, // Same as the "Chat" button
+    y: bottomLeftButtonValues.y,
   };
   if (globals.lobby.settings.keldonMode) {
     hypoBackButtonValues.x = clueAreaValues.x + 0.38;
-    hypoBackButtonValues.y = clueAreaValues.y + 0.08;
+    hypoBackButtonValues.y = clueAreaValues.y + 0.035;
   }
   globals.elements.hypoBackButton = new Button({
     x: hypoBackButtonValues.x * winW,
@@ -1785,6 +1803,26 @@ const drawHypotheticalArea = () => {
   });
   globals.elements.hypoBackButton.on('click tap', hypothetical.sendBackOneTurn);
   globals.layers.UI.add(globals.elements.hypoBackButton as any);
+
+  // The "Toggle Hidden" button
+  const toggleHiddenButtonValues = {
+    y: bottomLeftButtonValues.y + bottomLeftButtonValues.h! + 0.01, // Same as the "Chat" button
+  };
+  if (globals.lobby.settings.keldonMode) {
+    toggleHiddenButtonValues.y = clueAreaValues.y + 0.1;
+  }
+  globals.elements.toggleRevealedButton = new Button2({
+    x: hypoBackButtonValues.x * winW,
+    y: toggleHiddenButtonValues.y * winH,
+    width: 0.07 * winW,
+    height: 0.1226 * winH,
+    text: 'Toggle',
+    text2: globals.hypoRevealed ? 'Hidden' : 'Revealed',
+    text3: 'Cards',
+    visible: false,
+  });
+  globals.elements.toggleRevealedButton.on('click tap', hypothetical.toggleRevealed);
+  globals.layers.UI.add(globals.elements.toggleRevealedButton as any);
 };
 
 const drawPauseArea = () => {

@@ -14,6 +14,7 @@ import NoteIndicator from './NoteIndicator';
 import * as notes from './notes';
 import possibilitiesCheck from './possibilitiesCheck';
 import RankPip from './RankPip';
+import * as reversible from './variants/reversible';
 
 export function image(this: HanabiCard) {
   // Create the "bare" card image, which is the main card grahpic
@@ -42,7 +43,7 @@ const borderStrokeWidthInside = borderStrokeWidth * 0.6;
 const borderOffset = 2;
 const borderOutsideColor = '#0d0d0d'; // Off-black
 
-export function border(this: HanabiCard) {
+export function borders(this: HanabiCard) {
   // The card will get a border when it becomes clued
   this.cluedBorder = new Konva.Group({
     visible: false,
@@ -128,6 +129,75 @@ export function border(this: HanabiCard) {
   this.add(this.finesseBorder);
 }
 
+export function directionArrow(this: HanabiCard) {
+  if (!reversible.hasReversedSuits()) {
+    return;
+  }
+
+  this.arrow = new Konva.Group({
+    x: 0.815 * CARD_W,
+    visible: false,
+    offset: {
+      x: 0,
+      y: 0.14 * CARD_H,
+    },
+  });
+  this.add(this.arrow);
+
+  (this.arrow as any).setBottomRight = () => {
+    this.arrow!.y(0.79 * CARD_H);
+  };
+  (this.arrow as any).setMiddleRight = () => {
+    this.arrow!.y(0.5 * CARD_H);
+  };
+
+  const arrowHeight = 0.25;
+  const pointerLength = 0.05 * CARD_W;
+
+  const border = new Konva.Arrow({
+    points: [
+      0,
+      0,
+      0,
+      arrowHeight * CARD_H,
+    ],
+    pointerLength,
+    pointerWidth: pointerLength * 1.5,
+    fill: 'black',
+    stroke: 'black',
+    strokeWidth: pointerLength * 2,
+  });
+  this.arrow.add(border);
+
+  const edge = new Konva.Line({
+    points: [
+      0 - pointerLength,
+      0,
+      0 + pointerLength,
+      0,
+    ],
+    fill: 'black',
+    stroke: 'black',
+    strokeWidth: pointerLength * 0.75,
+  });
+  this.arrow.add(edge);
+
+  this.arrowBase = new Konva.Arrow({
+    points: [
+      0,
+      0,
+      0,
+      arrowHeight * CARD_H,
+    ],
+    pointerLength,
+    pointerWidth: pointerLength * 1.5,
+    fill: 'white',
+    stroke: 'white', // This should match the color of the suit; it will be manually set later on
+    strokeWidth: pointerLength * 1.25,
+  });
+  this.arrow.add(this.arrowBase);
+}
+
 export function pips(this: HanabiCard) {
   // Initialize the suit pips (colored shapes) on the back of the card,
   // which will be removed one by one as the card gains negative information
@@ -205,7 +275,6 @@ export function pips(this: HanabiCard) {
       suitPip.fillRadialGradientStartRadius(0);
       suitPip.fillRadialGradientEndRadius(Math.floor(CARD_W * 0.25));
     }
-    suitPip.rotation(0);
     this.suitPips.add(suitPip);
     this.suitPipsMap.set(suit, suitPip);
 
@@ -301,11 +370,11 @@ export function note(this: HanabiCard) {
   const noteY = 0.03;
   const size = 0.2 * CARD_W;
   this.noteIndicator = new NoteIndicator({
-    x: noteX * CARD_W,
     // If the cards have triangles on the corners that show the color composition,
     // the images will overlap
     // Thus, we move it downwards if this is the case
-    y: (globals.variant.offsetCornerElements ? noteY + 0.1 : noteY) * CARD_H,
+    x: (globals.variant.offsetCornerElements ? noteX - 0.05 : noteX) * CARD_W,
+    y: (globals.variant.offsetCornerElements ? noteY + 0.05 : noteY) * CARD_H,
     align: 'center',
     image: globals.ImageLoader!.get('note')!,
     width: size,
@@ -366,6 +435,39 @@ export function note(this: HanabiCard) {
   });
 }
 
+export function criticalIndicator(this: HanabiCard) {
+  // Define the critical indicator image
+  const critX = 0.06;
+  const critY = 0.82;
+  const size = 0.2 * CARD_W;
+  this.criticalIndicator = new Konva.Image({
+    // If the cards have triangles on the corners that show the color composition,
+    // the images will overlap
+    // Thus, we move it upwards if this is the case
+    x: (globals.variant.offsetCornerElements ? critX + 0.05 : critX) * CARD_W,
+    y: (globals.variant.offsetCornerElements ? critY - 0.05 : critY) * CARD_H,
+    align: 'center',
+    image: globals.ImageLoader!.get('critical')!,
+    width: size,
+    height: size,
+    rotation: 180,
+    shadowColor: 'black',
+    shadowBlur: 10,
+    shadowOffset: {
+      x: 0,
+      y: 0,
+    },
+    shadowOpacity: 0.9,
+    visible: false,
+    listening: false,
+  });
+  this.criticalIndicator.scale({
+    x: -1,
+    y: -1,
+  });
+  this.add(this.criticalIndicator);
+}
+
 // In a game, click on a teammate's hand to it show as it would to that teammate
 // (or show your own hand as it should appear without any identity notes on it)
 // (or, in a replay, show the hand as it appeared at that moment in time)
@@ -379,9 +481,9 @@ export function empathy(this: HanabiCard) {
       || (event.evt.ctrlKey && !globals.speedrun && !globals.lobby.settings.speedrunMode)
       || (
         !event.evt.ctrlKey
-          && (globals.speedrun || globals.lobby.settings.speedrunMode)
-          && !globals.replay
-          && !globals.spectating
+        && (globals.speedrun || globals.lobby.settings.speedrunMode)
+        && !globals.replay
+        && !globals.spectating
       )
       || event.evt.shiftKey
       || event.evt.altKey
@@ -510,7 +612,7 @@ export function possibilities(this: HanabiCard) {
   }
 }
 
-export function trashcan(this: HanabiCard) {
+export function fadedImages(this: HanabiCard) {
   this.trashcan = new Konva.Image({
     x: 0.15 * CARD_W,
     y: 0.2 * CARD_H,
@@ -520,9 +622,7 @@ export function trashcan(this: HanabiCard) {
     visible: false,
   });
   this.add(this.trashcan);
-}
 
-export function wrench(this: HanabiCard) {
   this.wrench = new Konva.Image({
     x: 0.1 * CARD_W,
     y: 0.33 * CARD_H,

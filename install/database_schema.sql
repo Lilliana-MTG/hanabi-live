@@ -63,7 +63,7 @@ CREATE TABLE user_settings (
     volume                              SMALLINT  NOT NULL  DEFAULT 50,
     create_table_variant                TEXT      NOT NULL  DEFAULT 'No Variant',
     create_table_timed                  BOOLEAN   NOT NULL  DEFAULT FALSE,
-    create_table_base_time_minutes      FLOAT     NOT NULL  DEFAULT 2,
+    create_table_time_base_minutes      FLOAT     NOT NULL  DEFAULT 2,
     create_table_time_per_turn_seconds  INTEGER   NOT NULL  DEFAULT 20,
     create_table_speedrun               BOOLEAN   NOT NULL  DEFAULT FALSE,
     create_table_card_cycle             BOOLEAN   NOT NULL  DEFAULT FALSE,
@@ -121,7 +121,6 @@ CREATE TABLE games (
     id                     SERIAL       PRIMARY KEY,
     name                   TEXT         NOT NULL,
     num_players            SMALLINT     NOT NULL,
-    owner                  INTEGER      NOT NULL,
     /*
      * By default, the starting player is always at index (seat) 0
      * This field is only needed for legacy games before April 2020
@@ -142,10 +141,8 @@ CREATE TABLE games (
     num_turns              SMALLINT     NOT NULL,
     /* See the "endCondition" values in "constants.go" */
     end_condition          SMALLINT     NOT NULL,
-    datetime_created       TIMESTAMPTZ  NOT NULL,
     datetime_started       TIMESTAMPTZ  NOT NULL,
-    datetime_finished      TIMESTAMPTZ  NOT NULL,
-    FOREIGN KEY (owner) REFERENCES users (id) ON DELETE CASCADE
+    datetime_finished      TIMESTAMPTZ  NOT NULL
 );
 CREATE INDEX games_index_num_players ON games (num_players);
 CREATE INDEX games_index_variant     ON games (variant);
@@ -197,6 +194,13 @@ CREATE TABLE game_actions (
     value    SMALLINT  NOT NULL,
     FOREIGN KEY (game_id) REFERENCES games (id) ON DELETE CASCADE,
     PRIMARY KEY (game_id, turn)
+);
+
+DROP TABLE IF EXISTS game_tags CASCADE;
+CREATE TABLE game_tags (
+    game_id  INTEGER  NOT NULL,
+    tag      TEXT     NOT NULL,
+    CONSTRAINT game_tags_unique UNIQUE (game_id, tag)
 );
 
 DROP TABLE IF EXISTS variant_stats CASCADE;

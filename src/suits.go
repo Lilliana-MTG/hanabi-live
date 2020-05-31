@@ -15,6 +15,7 @@ type Suit struct {
 	Abbreviation string   `json:"abbreviation"`
 	ClueColors   []string `json:"clueColors"`
 	OneOfEach    bool     `json:"oneOfEach"`
+	Reversed     bool     `json:"reversed"`
 
 	AllClueColors bool `json:"allClueColors"`
 	AllClueRanks  bool `json:"allClueRanks"`
@@ -33,7 +34,7 @@ func suitsInit() {
 		contents = v
 	}
 	if err := json.Unmarshal(contents, &suits); err != nil {
-		logger.Fatal("Failed to convert the suits file to JSON:", err)
+		logger.Fatal("Failed to convert the suits file from JSON:", err)
 		return
 	}
 
@@ -85,10 +86,17 @@ func suitsInit() {
 			if _, ok := colors[name]; ok {
 				suit.ClueColors = []string{name}
 			} else if name != "Unknown" { // The "Unknown" suit is not supposed to have clue colors
-				logger.Fatal("The suit of \"" + name + "\" has no clue colors defined and there " +
-					"is no color of the same name.")
+				logger.Fatal("The suit of \"" + name + "\" " +
+					"has no clue colors defined and there is no color of the same name.")
 				return
 			}
 		}
+	}
+
+	// Add reversed versions of all suits
+	for name, suit := range suits {
+		suitRev := *suit
+		suitRev.Reversed = true
+		suits[name+"-Reversed"] = &suitRev
 	}
 }

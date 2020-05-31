@@ -1,13 +1,13 @@
 linters:
   enable-all: true
   disable:
-    # We use many long functions
+    # We use long functions
     - funlen
-    # We use many globals in the code base
+    # We use globals in the code base
     - gochecknoglobals
     # gocognit complains about having large functions
     - gocognit
-    # goconst complains about some common strings
+    # goconst complains about common strings
     - goconst
     # gocritic complains about needing to make case statements
     - gocritic
@@ -19,8 +19,10 @@ linters:
     - goerr113
     # gofmt is not needed because we are running goimports (which is a superset of gofmt)
     - gofmt
-    # gomnd complains about common numbers
+    # gomnd complains about magic numbers
     - gomnd
+    # We manage long lines manually
+    - lll
     # We do not care about making structs take less memory
     - maligned
     # nestif complains about some harmless nested if statements
@@ -44,11 +46,6 @@ linters-settings:
   govet:
     # Checking for shadowed variables is experimental and disabled by default
     check-shadowing: true
-
-  lll:
-    # Match the line length used in the Airbnb style guide used in the Hanabi client TypeScript
-    line-length: 100
-    tab-width: 4
 
   whitespace:
     # Enforce newlines (or comments) after every multi-line if statement

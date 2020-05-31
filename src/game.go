@@ -8,8 +8,17 @@ import (
 
 type Game struct {
 	// This corresponds to the database ID of the game
-	// or 0 if it is an ongoing game that has not been written to the database yet
+	// It will be 0 in an ongoing game that has not been written to the database yet
 	ID int
+
+	// This corresponds to the database field of "datetime_started"
+	// It will be equal to "Table.DatetimeStarted" in an ongoing game that has not been written to
+	// the database yet
+	DatetimeStarted time.Time
+
+	// This corresponds to the database field of "datetime_finished"
+	// It will be blank in an ongoing game that has not been written to the database yet
+	DatetimeFinished time.Time
 
 	// This is a reference to the parent object; every game must have a parent Table object
 	Table *Table `json:"-"` // Skip circular references when encoding
@@ -70,6 +79,10 @@ type Game struct {
 	// Hypothetical-related fields
 	Hypothetical bool // Whether or not we are in a post-game hypothetical
 	HypoActions  []string
+	HypoRevealed bool // Whether or not drawn cards should be revealed (false by default)
+
+	// Keep track of user-defined tags; they will be written to the database upon game completion
+	Tags map[string]struct{}
 }
 
 func NewGame(t *Table) *Game {
@@ -83,13 +96,14 @@ func NewGame(t *Table) *Game {
 		StackDirections:   make([]int, len(variants[t.Options.Variant].Suits)),
 		DatetimeTurnBegin: time.Now(),
 		ClueTokens:        MaxClueNum,
-		MaxScore:          len(variants[t.Options.Variant].Suits) * 5,
+		MaxScore:          len(variants[t.Options.Variant].Suits) * PointsPerSuit,
 		LastClueTypeGiven: -1,
 		Actions:           make([]interface{}, 0),
 		Actions2:          make([]*GameAction, 0),
 		EndTurn:           -1,
 
 		HypoActions: make([]string, 0),
+		Tags:        make(map[string]struct{}),
 	}
 
 	if strings.HasPrefix(t.Options.Variant, "Clue Starved") {
@@ -97,6 +111,19 @@ func NewGame(t *Table) *Game {
 		// We want the players to start with the normal amount of clues,
 		// so we have to double the starting amount
 		g.ClueTokens *= 2
+	}
+
+	// Reverse the stack direction of reversed suits, except on the "Up or Down" variant
+	// that uses the "Undecided" direction.
+	v := variants[t.Options.Variant]
+	if v.HasReversedSuits() && !v.IsUpOrDown() {
+		for i, s := range v.Suits {
+			if s.Reversed {
+				g.StackDirections[i] = StackDirectionDown
+			} else {
+				g.StackDirections[i] = StackDirectionUp
+			}
+		}
 	}
 
 	// Also, attach this new Game object to the parent table
@@ -176,7 +203,7 @@ func (g *Game) CheckEnd() bool {
 	}
 
 	// Check for 3 strikes
-	if g.Strikes == 3 {
+	if g.Strikes == MaxStrikeNum {
 		logger.Info(t.GetName() + "3 strike maximum reached; ending the game.")
 		g.EndCondition = EndConditionStrikeout
 		return true
@@ -204,10 +231,10 @@ func (g *Game) CheckEnd() bool {
 	}
 
 	// Check to see if there are any cards remaining that can be played on the stacks
-	if strings.HasPrefix(g.Options.Variant, "Up or Down") {
+	if variants[g.Options.Variant].HasReversedSuits() {
 		// Searching for the next card is much more complicated if we are playing an "Up or Down"
-		// variant, so the logic for this is stored in a separate file
-		if !variantUpOrDownCheckAllDead(g) {
+		// or "Reversed" variant, so the logic for this is stored in a separate file
+		if !variantReversibleCheckAllDead(g) {
 			return false
 		}
 	} else {
@@ -261,9 +288,10 @@ func (g *Game) GetHandSize() int {
 // GetMaxScore calculates what the maximum score is,
 // accounting for stacks that cannot be completed due to discarded cards
 func (g *Game) GetMaxScore() int {
-	// Getting the maximum score is much more complicated if we are playing a "Up or Down" variant
-	if strings.HasPrefix(g.Options.Variant, "Up or Down") {
-		return variantUpOrDownGetMaxScore(g)
+	// Getting the maximum score is much more complicated if we are playing a
+	// "Up or Down" or "Reversed" variant
+	if variants[g.Options.Variant].HasReversedSuits() {
+		return variantReversibleGetMaxScore(g)
 	}
 
 	maxScore := 0

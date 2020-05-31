@@ -102,8 +102,9 @@ func httpWS(c *gin.Context) {
 		// e.g. an "orphaned" user
 		// This can happen in situations where a test user was deleted, for example
 		// Delete their cookie and force them to relogin
-		logger.Info("User from \"" + ip + "\" tried to login with a cookie for an orphaned user " +
-			"ID of " + strconv.Itoa(userID) + ". Deleting their cookie.")
+		logger.Info("User from \"" + ip + "\" " +
+			"tried to login with a cookie with an orphaned user ID of " + strconv.Itoa(userID) + ". " +
+			"Deleting their cookie.")
 		http.Error(
 			w,
 			http.StatusText(http.StatusUnauthorized),
@@ -140,6 +141,7 @@ func httpWS(c *gin.Context) {
 
 	// If they got this far, they are a valid user
 	// Transfer the values from the login cookie into WebSocket session variables
+	// New keys added here should also be added to the "newFakeSesssion()" function
 	keys := make(map[string]interface{})
 	// This is independent of the user and used for disconnection purposes
 	keys["sessionID"] = sessionID
@@ -162,11 +164,13 @@ func httpWS(c *gin.Context) {
 	commandMutex.Unlock() // We will acquire the lock again in the "websocketConnect()" function
 	if err := m.HandleRequestWithKeys(w, r, keys); err != nil {
 		// We don't use "httpWSError()" since we do not want to unlock the command mutex
-		logger.Error("Failed to establish the WebSocket connection for user \""+username+"\":", err)
+		// We use "logger.Info()" instead of "logger.Error()" because WebSocket establishment can
+		// fail for mundane reasons (e.g. internet dropping)
+		logger.Info("Failed to establish the WebSocket connection for user \""+username+"\":", err)
 		http.Error(
 			w,
-			http.StatusText(http.StatusInternalServerError),
-			http.StatusInternalServerError,
+			http.StatusText(http.StatusBadRequest),
+			http.StatusBadRequest,
 		)
 		deleteCookie(c)
 		return

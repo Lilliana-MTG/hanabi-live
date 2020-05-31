@@ -63,6 +63,11 @@ input[type="radio"] + label:before,
   margin-top: 0;
 }
 
+.button {
+  /* Disable the ugly black border that appears when we click on a button */
+  outline: none;
+}
+
 .row {
   border-bottom: 0;
 }
@@ -76,7 +81,6 @@ a {
 
 .name-me {
   color: #e69500;
-  text-decoration: underline; /* This is needed or else the underline will be blue */
 }
 
 .friend {
@@ -237,7 +241,7 @@ table td {
   background-color: #f2dede;
   border-color: #ebccd1;
   padding: 15px;
-  margin-bottom: 0;
+  margin-bottom: 1em;
   border: 1px solid transparent;
   border-radius: 4px;
 }
@@ -574,10 +578,6 @@ input::-webkit-calendar-picker-indicator {
   background: #ddd;
   border: none;
   border-radius: 3px;
-}
-
-#settings-volume-test {
-  outline: none;
 }
 
 /*

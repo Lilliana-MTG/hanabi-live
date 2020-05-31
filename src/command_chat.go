@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/microcosm-cc/bluemonday"
 )
@@ -146,6 +147,8 @@ func commandChat(s *Session, d *CommandData) {
 		// We use "rawMsg" instead of "d.Msg" because we want to send the unsanitized message
 		// The bluemonday library is intended for HTML rendering,
 		// and Discord can handle any special characters
+		// Furthermore, replace some HTML-escaped symbols with their real counterparts
+		rawMsg = strings.ReplaceAll(rawMsg, "&amp;", "&")
 		discordSend(discordLobbyChannel, d.Username, rawMsg)
 	}
 
@@ -258,6 +261,14 @@ func sanitizeChatInput(s *Session, msg string, server bool) (string, bool) {
 		msg = msg[0 : maxLength-1]
 	}
 
+	// Check for valid UTF8
+	if !utf8.Valid([]byte(msg)) {
+		if s != nil {
+			s.Warning("Chat messages must contain valid UTF8 characters.")
+		}
+		return msg, false
+	}
+
 	// Replace any whitespace that is not a space with a space
 	msg2 := msg
 	for _, letter := range msg2 {
@@ -266,22 +277,22 @@ func sanitizeChatInput(s *Session, msg string, server bool) (string, bool) {
 		}
 	}
 
-	// Trim whitespace from both sides of the message
+	// Trim whitespace from both sides
 	msg = strings.TrimSpace(msg)
 
 	// Validate blank messages
 	if msg == "" {
 		if s != nil {
-			s.Warning("Chat messages must not be blank.")
+			s.Warning("Chat messages cannot be blank.")
 		}
 		return msg, false
 	}
 
-	// Validate that the message does not have two or more consecutive diacritics (accents)
-	// This prevents the attack where messages can have a lot of diacritics and cause overflow
-	// into sections above and below the text
-	if hasConsecutiveDiacritics(msg) {
-		s.Warning("Chat messages cannot contain two or more consecutive diacritics.")
+	// Validate that the message does not contain an unreasonable amount of consecutive diacritics
+	// (accents)
+	if numConsecutiveDiacritics(msg) > ConsecutiveDiacriticsAllowed {
+		s.Warning("Chat messages cannot contain more than " +
+			strconv.Itoa(ConsecutiveDiacriticsAllowed) + " consecutive diacritics.")
 		return msg, false
 	}
 

@@ -10,9 +10,9 @@ import {
 } from '../../constants';
 import action from './action';
 import { Action } from './actions';
+import cardStatusCheck from './cardStatusCheck';
 import { getTouchedCardsFromClue } from './clues';
 import { suitToMsgSuit } from './convert';
-import fadeCheck from './fadeCheck';
 import globals from './globals';
 import HanabiCard from './HanabiCard';
 import LayoutChild from './LayoutChild';
@@ -57,6 +57,7 @@ export const show = () => {
     globals.elements.restartButton!.visible(false);
     globals.elements.endHypotheticalButton!.visible(true);
     globals.elements.hypoBackButton!.visible(globals.hypoActions.length > 0);
+    globals.elements.toggleRevealedButton!.visible(true);
   } else {
     globals.elements.hypoCircle!.visible(true);
   }
@@ -74,7 +75,7 @@ export const playThroughPastActions = () => {
     for (const actionMessage of globals.hypoActions) {
       action(actionMessage);
     }
-    fadeCheck();
+    cardStatusCheck();
     globals.animateFast = false;
     globals.elements.actionLog!.refreshText();
     globals.elements.fullActionLog!.refreshText();
@@ -104,6 +105,7 @@ export const end = () => {
     globals.elements.restartButton!.show();
     globals.elements.endHypotheticalButton!.hide();
     globals.elements.hypoBackButton!.hide();
+    globals.elements.toggleRevealedButton!.hide();
 
     // Furthermore, disable dragging and get rid of the clue UI
     disableDragOnAllHands();
@@ -238,6 +240,9 @@ export const send = (hypoAction: Action) => {
       || type === 'discard'
     ) {
       globals.clues += 1;
+      if (globals.variant.name.startsWith('Clue Starved')) {
+        globals.clues -= 0.5;
+      }
     }
 
     // Text
@@ -255,8 +260,8 @@ export const send = (hypoAction: Action) => {
       sendHypoAction({
         type: 'draw',
         order: nextCardOrder,
-        rank: nextCard.rank,
-        suit: nextCard.suit,
+        rank: globals.hypoRevealed ? nextCard.rank : -1,
+        suit: globals.hypoRevealed ? nextCard.suit : -1,
         who: globals.currentPlayerIndex,
       });
     }
@@ -265,7 +270,7 @@ export const send = (hypoAction: Action) => {
   // Status
   sendHypoAction({
     type: 'status',
-    clues: globals.clues,
+    clues: globals.variant.name.startsWith('Clue Starved') ? globals.clues * 2 : globals.clues,
     doubleDiscard: false,
     score: globals.score,
     maxScore: globals.maxScore,
@@ -331,7 +336,7 @@ export const backOneTurn = () => {
   }
   globals.elements.hypoBackButton!.visible((
     globals.amSharedReplayLeader
-        && globals.hypoActions.length > 0
+    && globals.hypoActions.length > 0
   ));
 
   // Reset to the turn where the hypothetical started
@@ -376,5 +381,12 @@ const cycleHand = () => {
     type: 'reorder',
     target: globals.currentPlayerIndex,
     handOrder: cardOrders,
+  });
+};
+
+export const toggleRevealed = () => {
+  globals.lobby.conn!.send('replayAction', {
+    tableID: globals.lobby.tableID,
+    type: REPLAY_ACTION_TYPE.HYPO_TOGGLE_REVEALED,
   });
 };

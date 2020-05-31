@@ -35,8 +35,8 @@ func commandTableRestart(s *Session, d *CommandData) {
 	}
 
 	// Validate that this person is spectating the shared replay
-	i := t.GetSpectatorIndexFromID(s.UserID())
-	if i < -1 {
+	j := t.GetSpectatorIndexFromID(s.UserID())
+	if j < -1 {
 		s.Warning("You are not in shared replay " + strconv.Itoa(tableID) + ".")
 	}
 
@@ -108,6 +108,20 @@ func commandTableRestart(s *Session, d *CommandData) {
 		return
 	}
 
+	// Validate that no-one in the game are currently playing in any other games
+	if s.GetJoinedTable() != nil {
+		s.Warning("You cannot join more than one table at a time. " +
+			"Terminate your other game before restarting a replay.")
+		return
+	}
+	for _, s2 := range playerSessions {
+		if s2.GetJoinedTable() != nil {
+			s.Warning("You cannot restart the game because " + s2.Username() +
+				" is already playing in another game.")
+			return
+		}
+	}
+
 	/*
 		Restart
 	*/
@@ -147,7 +161,7 @@ func commandTableRestart(s *Session, d *CommandData) {
 		Name:                 newTableName,
 		Variant:              t.Options.Variant,
 		Timed:                t.Options.Timed,
-		BaseTime:             t.Options.BaseTime,
+		TimeBase:             t.Options.TimeBase,
 		TimePerTurn:          t.Options.TimePerTurn,
 		Speedrun:             t.Options.Speedrun,
 		CardCycle:            t.Options.CardCycle,

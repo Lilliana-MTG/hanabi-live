@@ -2,6 +2,8 @@ package main
 
 import (
 	"strconv"
+	"strings"
+	"time"
 )
 
 // commandGetGameInfo1 provides some high-level information about the game
@@ -37,7 +39,7 @@ func commandGetGameInfo1(s *Session, d *CommandData) {
 
 	// Validate that the game has started
 	if !t.Running {
-		s.Warning("The game for table " + strconv.Itoa(tableID) + " has not started yet.")
+		s.Warning(ChatCommandNotStartedFail)
 		return
 	}
 
@@ -98,18 +100,22 @@ func commandGetGameInfo1(s *Session, d *CommandData) {
 	// Give them an "init" message
 	type InitMessage struct {
 		// Game settings
-		TableID      int      `json:"tableID"`
-		Names        []string `json:"names"`
-		Variant      string   `json:"variant"`
-		Seat         int      `json:"seat"`
-		Spectating   bool     `json:"spectating"`
-		Replay       bool     `json:"replay"`
-		SharedReplay bool     `json:"sharedReplay"`
-		DatabaseID   int      `json:"databaseID"`
+		TableID          int       `json:"tableID"`
+		Names            []string  `json:"names"`
+		Variant          string    `json:"variant"`
+		Seat             int       `json:"seat"`
+		Spectating       bool      `json:"spectating"`
+		Replay           bool      `json:"replay"`
+		SharedReplay     bool      `json:"sharedReplay"`
+		DatabaseID       int       `json:"databaseID"`
+		Seed             string    `json:"seed"`
+		Seeded           bool      `json:"seeded"`
+		DatetimeStarted  time.Time `json:"datetimeStarted"`
+		DatetimeFinished time.Time `json:"datetimeFinished"`
 
 		// Optional settings
 		Timed                bool     `json:"timed"`
-		BaseTime             int      `json:"baseTime"`
+		TimeBase             int      `json:"timeBase"`
 		TimePerTurn          int      `json:"timePerTurn"`
 		Speedrun             bool     `json:"speedrun"`
 		CardCycle            bool     `json:"cardCycle"`
@@ -121,6 +127,7 @@ func commandGetGameInfo1(s *Session, d *CommandData) {
 		// Hypothetical settings
 		Hypothetical bool     `json:"hypothetical"`
 		HypoActions  []string `json:"hypoActions"`
+		HypoRevealed bool     `json:"hypoRevealed"`
 
 		// Other features
 		Paused      bool   `json:"paused"`
@@ -130,18 +137,22 @@ func commandGetGameInfo1(s *Session, d *CommandData) {
 
 	s.Emit("init", &InitMessage{
 		// Game settings
-		TableID:      t.ID, // The client needs to know the table ID for chat to work properly
-		Names:        names,
-		Variant:      t.Options.Variant,
-		Seat:         seat,
-		Spectating:   !t.Replay && j != -1,
-		Replay:       t.Replay,
-		SharedReplay: t.Replay && t.Visible,
-		DatabaseID:   g.ID,
+		TableID:          t.ID, // The client needs to know the table ID for chat to work properly
+		Names:            names,
+		Variant:          t.Options.Variant,
+		Seat:             seat,
+		Spectating:       !t.Replay && j != -1,
+		Replay:           t.Replay,
+		SharedReplay:     t.Replay && t.Visible,
+		DatabaseID:       g.ID,
+		Seed:             g.Seed,
+		Seeded:           strings.HasPrefix(t.Name, "!seed "),
+		DatetimeStarted:  g.DatetimeStarted,
+		DatetimeFinished: g.DatetimeFinished,
 
 		// Optional settings
 		Timed:                t.Options.Timed,
-		BaseTime:             t.Options.BaseTime,
+		TimeBase:             t.Options.TimeBase,
 		TimePerTurn:          t.Options.TimePerTurn,
 		Speedrun:             t.Options.Speedrun,
 		CardCycle:            t.Options.CardCycle,
@@ -153,6 +164,7 @@ func commandGetGameInfo1(s *Session, d *CommandData) {
 		// Hypothetical settings
 		Hypothetical: g.Hypothetical,
 		HypoActions:  g.HypoActions,
+		HypoRevealed: g.HypoRevealed,
 
 		// Other features
 		Paused:      g.Paused,

@@ -5,8 +5,8 @@ import { CLUE_TYPE, REPLAY_ARROW_ORDER, VARIANTS } from '../../constants';
 import * as sentry from '../../sentry';
 import action from './action';
 import * as arrows from './arrows';
+import cardStatusCheck from './cardStatusCheck';
 import ClockData from './ClockData';
-import fadeCheck from './fadeCheck';
 import globals from './globals';
 import * as hypothetical from './hypothetical';
 import * as notes from './notes';
@@ -126,6 +126,11 @@ commands.set('gameOver', () => {
   globals.elements.lobbyButtonSmall!.hide();
   globals.elements.lobbyButtonBig!.show();
 
+  // Re-draw the deck tooltip
+  // (it will show more information when you are in a replay)
+  globals.datetimeFinished = new Date();
+  globals.elements.deck!.initTooltip();
+
   // Turn off the "Throw It in a Hole" UI
   if (globals.variant.name.startsWith('Throw It in a Hole')) {
     globals.elements.scoreNumberLabel!.text(globals.score.toString());
@@ -161,6 +166,17 @@ commands.set('hypoEnd', () => {
   }
 });
 
+interface HypoRevealedData {
+  hypoRevealed: boolean;
+}
+commands.set('hypoRevealed', (data: HypoRevealedData) => {
+  globals.hypoRevealed = data.hypoRevealed;
+
+  const text = globals.hypoRevealed ? 'Hidden' : 'Revealed';
+  globals.elements.toggleRevealedButton!.setMiddleText(text);
+  globals.layers.UI.batchDraw();
+});
+
 commands.set('hypoStart', () => {
   if (!globals.amSharedReplayLeader) {
     hypothetical.start();
@@ -177,10 +193,14 @@ interface InitData {
   replay: boolean;
   sharedReplay: boolean;
   databaseID: number;
+  seed: string;
+  seeded: boolean;
+  datetimeStarted: Date;
+  datetimeFinished: Date;
 
   // Optional settings
   timed: boolean;
-  baseTime: number;
+  timeBase: number;
   timePerTurn: number;
   speedrun: boolean;
   cardCycle: boolean;
@@ -192,6 +212,7 @@ interface InitData {
   // Hypothetical settings
   hypothetical: boolean;
   hypoActions: string[];
+  hypoRevealed: boolean;
 
   // Other features
   paused: boolean;
@@ -217,10 +238,14 @@ commands.set('init', (data: InitData) => {
   globals.replay = data.replay;
   globals.sharedReplay = data.sharedReplay;
   globals.databaseID = data.databaseID; // 0 if this is an ongoing game
+  globals.seed = data.seed;
+  globals.seeded = data.seeded; // If playing a table started with the "!seed" prefix
+  globals.datetimeStarted = data.datetimeStarted;
+  globals.datetimeFinished = data.datetimeFinished;
 
   // Optional settings
   globals.timed = data.timed;
-  globals.baseTime = data.baseTime;
+  globals.timeBase = data.timeBase;
   globals.timePerTurn = data.timePerTurn;
   globals.speedrun = data.speedrun;
   globals.cardCycle = data.cardCycle;
@@ -235,6 +260,7 @@ commands.set('init', (data: InitData) => {
   for (let i = 0; i < globals.hypoActions.length; i++) {
     globals.hypoActions[i] = JSON.parse(globals.hypoActions[i]);
   }
+  globals.hypoRevealed = data.hypoRevealed;
 
   // Other features
   globals.paused = data.paused;
@@ -453,7 +479,7 @@ commands.set('gameActionList', (data: GameActionListData) => {
     replay.goto(turnNum, true);
   }
 
-  fadeCheck();
+  cardStatusCheck();
   globals.layers.card.batchDraw();
   globals.layers.UI.batchDraw();
   globals.loading = false;
@@ -618,10 +644,10 @@ commands.set('replayTurn', (data: ReplayTurnData) => {
     const animateFast = (
       // First loading into a shared replay should always be fast
       globals.sharedReplayLoading
-            // Rewinding should always be fast
-            || globals.sharedReplayTurn < oldTurn
-            // Going into the future by 2 or more turns should always be fast
-            || globals.sharedReplayTurn - oldTurn > 2
+      // Rewinding should always be fast
+      || globals.sharedReplayTurn < oldTurn
+      // Going into the future by 2 or more turns should always be fast
+      || globals.sharedReplayTurn - oldTurn > 2
     );
     // We need "force" to be true here in case we are refreshing the page in the middle of a
     // hypothetical
@@ -698,7 +724,9 @@ commands.set('spectators', (data: SpectatorsData) => {
     // Build the string that shows all the names
     let nameEntries = '';
     for (const name of data.names) {
-      if (globals.lobby.friends.includes(name)) {
+      if (name === globals.lobby.username) {
+        nameEntries += `<li><span class="name-me">${name}</span></li>`;
+      } else if (globals.lobby.friends.includes(name)) {
         nameEntries += `<li><span class="friend">${name}</span></li>`;
       } else {
         nameEntries += `<li>${name}</li>`;

@@ -13960,7 +13960,6 @@ aspirin
 aspiring
 aspirins
 asps
-ass
 assail
 assailable
 assailant
@@ -14014,7 +14013,6 @@ assertive
 assertively
 assertiveness
 asserts
-asses
 assess
 assessed
 assesses
@@ -14030,8 +14028,6 @@ asseverated
 asseverates
 asseverating
 asseveration
-asshole
-assholes
 assiduity
 assiduous
 assiduously
@@ -26427,13 +26423,10 @@ cumulonimbi
 cumulonimbus
 cumulus
 cuneiform
-cunnilingus
 cunning
 cunninger
 cunningest
 cunningly
-cunt
-cunts
 cup
 cupboard
 cupboards
@@ -50820,12 +50813,6 @@ mastodons
 mastoid
 mastoids
 masts
-masturbate
-masturbated
-masturbates
-masturbating
-masturbation
-masturbatory
 mat
 matador
 matadors

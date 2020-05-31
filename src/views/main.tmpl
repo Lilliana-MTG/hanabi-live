@@ -86,9 +86,23 @@
         </li>
         <li>&nbsp;</li>
         <li>
+          <a id="nav-buttons-history-show-friends" class="button">
+            <i class="fas fa-heart nav-icon"></i>
+            Show History of Friends
+          </a>
+        </li>
+        <li>
           <a id="nav-buttons-history-return" class="button">
             <i class="fas fa-home nav-icon"></i>
             <span class="nav-hotkey-indicator">R</span>eturn to Lobby
+          </a>
+        </li>
+      </ul>
+      <ul id="nav-buttons-history-friends" class="hidden">
+        <li>
+          <a id="nav-buttons-history-friends-return" class="button">
+            <i class="fas fa-history nav-icon"></i>
+            <span class="nav-hotkey-indicator">R</span>eturn to History
           </a>
         </li>
       </ul>
@@ -121,7 +135,7 @@
           <section id="loading" class="box align-center">
             <h3>Loading...</h3>
             <p>Hanabi Live is loading. Please wait!</p>
-            <img id="login-ajax" src="/public/img/ajax.gif">
+            <img src="/public/img/ajax.gif">
           </section>
 
           <section id="sign-in" class="box align-center hidden">
@@ -129,9 +143,7 @@
             <p>
               To create a new account, simply login with a new username and select a password.<br />
               Do <strong>NOT</strong> reuse any of your
-              <a href="https://github.com/Zamiell/hanabi-live/blob/master/docs/PASSWORDS.md" target="_blank" rel="noopener noreferrer">
-                previous passwords
-              </a>!
+              <a href="https://github.com/Zamiell/hanabi-live/blob/master/docs/PASSWORDS.md" target="_blank" rel="noopener noreferrer">previous passwords</a>!
             </p>
             <form id="login-form">
               <div class="row">
@@ -167,6 +179,7 @@
               <div class="row">
                 <div class="col-12">
                   <p id="login-alert" class="hidden"></p>
+                  <p style="margin-bottom: 0;"><a href="/password-reset">Forgot password?</a></p>
                 </div>
               </div>
             </form>
@@ -178,7 +191,7 @@
               A new version of Hanabi Live has been released and the server is in the process of
               loading the new client, which should only take a second or two. Please wait.
             </p>
-            <img id="login-ajax" src="/public/img/ajax.gif">
+            <img src="/public/img/ajax.gif">
           </section>
         </div>
       </div>
@@ -578,7 +591,7 @@
       <div class="col-12">
         <!-- The history table (all played games) -->
         <section id="lobby-history" class="box">
-          <h3 id="lobby-history-no" class="align-center">No game history. Play some games!</h3>
+          <h3 id="lobby-history-no" class="align-center"></h3>
           <div id="lobby-history-table-container" class="hidden lobby-table-container">
             <table class="alt">
               <thead>
@@ -605,7 +618,7 @@
               <a id="lobby-history-show-all" href="/history" target="_blank"
               rel="noopener noreferrer">
                 <!-- The correct link is set in "lobby/websocketInit.ts" -->
-                <button class="button align-center">
+                <button id="lobby-history-show-all-button" class="button align-center">
                   <i class="fas fa-history"></i>&nbsp;
                   All History
                 </button>
@@ -701,7 +714,7 @@
         (in minutes)
       </div>
       <div id="create-game-timed-option-2" class="col-2">
-        <input id="createTableBaseTimeMinutes" type="text" placeholder="Base Time">
+        <input id="createTableTimeBaseMinutes" type="text" placeholder="Base Time">
       </div>
       <div id="create-game-timed-option-3" class="col-2 input-text2 align-center">
         Time per Turn<br />
@@ -1208,6 +1221,7 @@
 <!-- Preload some images that are used while in a game -->
 <div id="preload" class="hidden">
   <img src="/public/img/crown.png">
+  <img src="/public/img/critical.png">
   <img src="/public/img/eyes.png">
   <img src="/public/img/home.png">
   <img src="/public/img/note.png">

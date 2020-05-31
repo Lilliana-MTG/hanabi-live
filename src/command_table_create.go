@@ -28,7 +28,7 @@ var (
 //   name: 'my new table',
 //   variant: 'No Variant',
 //   timed: true,
-//   baseTime: 120,
+//   timeBase: 120,
 //   timePerTurn: 20,
 //   speedrun: false,
 //   cardCycle: false,
@@ -56,29 +56,52 @@ func commandTableCreate(s *Session, d *CommandData) {
 	}
 
 	// Validate that the player is not joined to another table
-	if t2 := s.GetJoinedTable(); t2 != nil {
-		s.Warning("You cannot join more than one table at a time. " +
-			"Terminate your old game before joining a new one.")
-		return
+	if !strings.HasPrefix(s.Username(), "Bot-") {
+		if t2 := s.GetJoinedTable(); t2 != nil {
+			s.Warning("You cannot join more than one table at a time. " +
+				"Terminate your other game before creating a new one.")
+			return
+		}
 	}
+
+	// Truncate long table names
+	// (we do this first to prevent wasting CPU cycles on validating extremely long table names)
+	if len(d.Name) > MaxGameNameLength {
+		d.Name = d.Name[0 : MaxGameNameLength-1]
+	}
+
+	// Trim whitespace from both sides
+	d.Name = strings.TrimSpace(d.Name)
 
 	// Make a default game name if they did not provide one
 	if len(d.Name) == 0 {
 		d.Name = s.Username() + "'s game"
 	}
 
-	// Validate that the game name is not excessively long
-	if len(d.Name) > MaxGameNameLength {
-		s.Warning("You cannot have a game name be longer than " +
-			strconv.Itoa(MaxGameNameLength) + " characters.")
+	// Check for non-ASCII characters
+	if !isPrintableASCII(d.Name) {
+		s.Warning("Game names can only contain ASCII characters.")
 		return
 	}
 
 	// Validate that the game name does not contain any special characters
-	// (this mitigates XSS-style attacks)
+	// (this mitigates XSS attacks)
 	if !isAlphanumericSpacesSafeSpecialCharacters(d.Name) {
-		s.Warning("Game names can only contain English letters, numbers, spaces, hyphens, " +
-			"and exclamation marks.")
+		msg := "Game names can only contain English letters, numbers, spaces, " +
+			"<code>!</code>, " +
+			"<code>@</code>, " +
+			"<code>#</code>, " +
+			"<code>$</code>, " +
+			"<code>-</code>, " +
+			"<code>_</code>, " +
+			"<code>=</code>, " +
+			"<code>+</code>, " +
+			"<code>;</code>, " +
+			"<code>:</code>, " +
+			"<code>,</code>, " +
+			"<code>.</code>, " +
+			"and <code>?</code>."
+		s.Warning(msg)
 		return
 	}
 
@@ -147,8 +170,8 @@ func commandTableCreate(s *Session, d *CommandData) {
 
 			// Check to see if the game ID exists on the server
 			if exists, err := models.Games.Exists(databaseID); err != nil {
-				logger.Error("Failed to check to see if game "+
-					strconv.Itoa(databaseID)+" exists:", err)
+				logger.Error("Failed to check to see if game "+strconv.Itoa(databaseID)+
+					" exists:", err)
 				s.Error(CreateGameFail)
 				return
 			} else if !exists {
@@ -184,7 +207,7 @@ func commandTableCreate(s *Session, d *CommandData) {
 				// but stored in the database as an integer
 				d.Variant = variantsID[v.Variant]
 				d.Timed = v.Timed
-				d.BaseTime = v.BaseTime
+				d.TimeBase = v.TimeBase
 				d.TimePerTurn = v.TimePerTurn
 				d.Speedrun = v.Speedrun
 				d.CardCycle = v.CardCycle
@@ -272,8 +295,8 @@ func commandTableCreate(s *Session, d *CommandData) {
 				})
 			}
 		} else {
-			s.Warning("You cannot start a game with an exclamation mark unless " +
-				"you are trying to use a specific game creation command.")
+			msg := "You cannot start a game with an exclamation mark unless you are trying to use a specific game creation command."
+			s.Warning(msg)
 			return
 		}
 	}
@@ -286,38 +309,34 @@ func commandTableCreate(s *Session, d *CommandData) {
 
 	// Validate that the time controls are sane
 	if d.Timed {
-		if d.BaseTime <= 0 {
-			s.Warning("\"" + strconv.Itoa(d.BaseTime) + "\" is too small of a value for " +
-				"\"Base Time\".")
+		if d.TimeBase <= 0 {
+			s.Warning("\"" + strconv.Itoa(d.TimeBase) + "\" is too small of a value for \"Base Time\".")
 			return
 		}
-		if d.BaseTime > 604800 { // 1 week in seconds
-			s.Warning("\"" + strconv.Itoa(d.BaseTime) + "\" is too large of a value for " +
-				"\"Base Time\".")
+		if d.TimeBase > 604800 { // 1 week in seconds
+			s.Warning("\"" + strconv.Itoa(d.TimeBase) + "\" is too large of a value for \"Base Time\".")
 			return
 		}
 		if d.TimePerTurn <= 0 {
-			s.Warning("\"" + strconv.Itoa(d.TimePerTurn) + "\" is too small of a value for " +
-				"\"Time per Turn\".")
+			s.Warning("\"" + strconv.Itoa(d.TimePerTurn) + "\" is too small of a value for \"Time per Turn\".")
 			return
 		}
 		if d.TimePerTurn > 86400 { // 1 day in seconds
-			s.Warning("\"" + strconv.Itoa(d.TimePerTurn) + "\" is too large of a value for " +
-				"\"Time per Turn\".")
+			s.Warning("\"" + strconv.Itoa(d.TimePerTurn) + "\" is too large of a value for \"Time per Turn\".")
 			return
 		}
 	}
 
 	// Validate that there can be no time controls if this is not a timed game
 	if !d.Timed {
-		d.BaseTime = 0
+		d.TimeBase = 0
 		d.TimePerTurn = 0
 	}
 
 	// Validate that a speedrun cannot be timed
 	if d.Speedrun {
 		d.Timed = false
-		d.BaseTime = 0
+		d.TimeBase = 0
 		d.TimePerTurn = 0
 	}
 
@@ -343,7 +362,7 @@ func commandTableCreate(s *Session, d *CommandData) {
 	t.Options = &Options{
 		Variant:              d.Variant,
 		Timed:                d.Timed,
-		BaseTime:             d.BaseTime,
+		TimeBase:             d.TimeBase,
 		TimePerTurn:          d.TimePerTurn,
 		Speedrun:             d.Speedrun,
 		CardCycle:            d.CardCycle,

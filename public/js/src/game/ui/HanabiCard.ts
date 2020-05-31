@@ -16,13 +16,14 @@ import {
 } from '../../constants';
 import Suit from '../../Suit';
 import Clue from './Clue';
-import { msgSuitToSuit, suitToMsgSuit } from './convert';
+import { msgSuitToSuit } from './convert';
 import globals from './globals';
 import * as HanabiCardInit from './HanabiCardInit';
 import NoteIndicator from './NoteIndicator';
 import * as notes from './notes';
 import possibilitiesCheck from './possibilitiesCheck';
 import RankPip from './RankPip';
+import * as reversible from './variants/reversible';
 
 export default class HanabiCard extends Konva.Group {
   // Mark the object type for use elsewhere in the code
@@ -43,6 +44,7 @@ export default class HanabiCard extends Konva.Group {
   noteChopMoved: boolean = false;
   noteFinessed: boolean = false;
   noteBlank: boolean = false;
+  noteUnclued: boolean = false;
 
   // The following are the variables that are refreshed
   possibleSuits: Suit[] = [];
@@ -81,6 +83,9 @@ export default class HanabiCard extends Konva.Group {
   tooltipName: string = '';
   trashcan: Konva.Image | null = null;
   wrench: Konva.Image | null = null;
+  arrow: Konva.Group | null = null;
+  arrowBase: Konva.Arrow | null = null;
+  criticalIndicator: Konva.Image | null = null;
 
   constructor(config: Konva.ContainerConfig) {
     super(config);
@@ -102,13 +107,14 @@ export default class HanabiCard extends Konva.Group {
 
     // Initialize various elements/features of the card
     HanabiCardInit.image.call(this);
-    HanabiCardInit.border.call(this);
+    HanabiCardInit.borders.call(this);
+    HanabiCardInit.directionArrow.call(this);
     HanabiCardInit.pips.call(this);
     HanabiCardInit.note.call(this);
     HanabiCardInit.empathy.call(this);
     HanabiCardInit.click.call(this);
-    HanabiCardInit.trashcan.call(this);
-    HanabiCardInit.wrench.call(this);
+    HanabiCardInit.fadedImages.call(this);
+    HanabiCardInit.criticalIndicator.call(this);
   }
 
   // Erase all of the data on the card to make it like it was freshly drawn
@@ -144,7 +150,7 @@ export default class HanabiCard extends Konva.Group {
     // Some variants disable listening on cards
     this.listening(true);
 
-    this.setClued(false);
+    this.setClued();
     if (!globals.replay && !globals.spectating) {
       // If it has a "chop move" note on it, we want to keep the chop move border turned on
       if (this.noteChopMoved) {
@@ -184,12 +190,20 @@ export default class HanabiCard extends Konva.Group {
     this.setBareImage();
   }
 
-  setClued(clued: boolean) {
-    this.chopMoveBorder!.hide();
-    this.finesseBorder!.hide();
-    this.offsetY(0.5 * CARD_H);
+  setClued() {
+    const isClued = (
+      this.numPositiveClues > 0
+      && !this.isPlayed
+      && !this.isDiscarded
+      && !this.noteUnclued
+    );
+
+    // When cards are clued,
+    // they should raise up a little bit to make it clear that they are touched
+    // However, don't do this for other people's hands in Keldon mode
+    this.offsetY(0.5 * CARD_H); // The default offset
     if (
-      clued
+      isClued
       && (
         !globals.lobby.settings.keldonMode
         || (this.holder === globals.playerUs && !globals.replay)
@@ -197,7 +211,12 @@ export default class HanabiCard extends Konva.Group {
     ) {
       this.offsetY(0.6 * CARD_H);
     }
-    this.cluedBorder!.visible(clued);
+
+    this.cluedBorder!.visible(isClued);
+
+    // Remove all special borders when a card is clued, played, discarded
+    this.chopMoveBorder!.hide();
+    this.finesseBorder!.hide();
   }
 
   isClued() {
@@ -314,6 +333,8 @@ export default class HanabiCard extends Konva.Group {
     this.trashcan!.visible((
       this.noteKnownTrash
       && !this.empathy
+      && !this.isPlayed
+      && !this.isDiscarded
       && !globals.replay
       && !globals.spectating
     ));
@@ -322,11 +343,69 @@ export default class HanabiCard extends Konva.Group {
     this.wrench!.visible((
       this.noteNeedsFix
       && !this.empathy
+      && !this.isPlayed
+      && !this.isDiscarded
       && !globals.replay
       && !globals.spectating
     ));
 
+    this.setDirectionArrow();
     this.setFade();
+    this.setCritical();
+  }
+
+  setDirectionArrow() {
+    // Show or hide the direction arrow (for specific variants)
+    if (
+      this.suit === null
+      || this.rank === 0
+      || (!this.suit.reversed && !reversible.isUpOrDown())
+    ) {
+      return;
+    }
+
+    const suitIndex = globals.variant.suits.indexOf(this.suit);
+    const direction = globals.stackDirections[suitIndex];
+
+    let shouldShowArrow;
+    if (reversible.isUpOrDown()) {
+      // In "Up or Down" variants, the arrow should be shown when the stack direction is determined
+      // (and the arrow should be cleared when the stack is finished)
+      shouldShowArrow = (
+        direction === STACK_DIRECTION.UP
+        || direction === STACK_DIRECTION.DOWN
+      );
+    } else if (this.suit.reversed) {
+      // In variants with a reversed suit, the arrow should always be shown on the reversed suit
+      shouldShowArrow = true;
+    } else {
+      throw new Error('The "setDirectionArrow()" function encountered an impossible situation.');
+    }
+
+    const visible = (
+      shouldShowArrow
+      // As an exception, arrows should not show if we are using empathy and they have not
+      // discovered the true suit of the card yet
+      && (!this.empathy || this.possibleSuits.length === 1)
+    );
+    this.arrow!.visible(visible);
+    if (!visible) {
+      return;
+    }
+
+    this.arrow!.rotation(direction === STACK_DIRECTION.UP ? 180 : 0);
+    this.arrowBase!.stroke(this.suit!.fill);
+    if (this.suit.fill === 'multi') {
+      // We can't use a fill gradiant because the "fill" is actually a big stroke
+      // (the Konva arrow object is not a shape, but instead a very thick line)
+      // Instead, just use the the first gradiant color
+      this.arrowBase!.stroke(this.suit.fillColors[0]);
+    }
+    if (this.rankPips!.visible()) {
+      (this.arrow! as any).setMiddleRight();
+    } else {
+      (this.arrow! as any).setBottomRight();
+    }
   }
 
   // Fade this card if it is useless, fully revealed, and still in a player's hand
@@ -364,6 +443,18 @@ export default class HanabiCard extends Konva.Group {
     }
 
     this.opacity(newOpacity);
+  }
+
+  // Show an indicator if this card is critical, unclued, unmarked, and still in a player's hand
+  setCritical() {
+    this.criticalIndicator!.visible((
+      this.isCritical()
+      && !this.empathy
+      && !globals.lobby.settings.realLifeMode
+      && !this.isPlayed
+      && !this.isDiscarded
+      && !this.noteBlank
+    ));
   }
 
   // This card was touched by a positive or negative clue,
@@ -940,11 +1031,17 @@ export default class HanabiCard extends Konva.Group {
     if (
       this.suit === null
       || this.rank === null
+      || this.rank === 0 // Base
       || this.isPlayed
       || this.isDiscarded
-      || this.needsToBePlayed()
+      || !this.needsToBePlayed()
     ) {
       return false;
+    }
+
+    // "Up or Down" has some special cases for critical cards
+    if (reversible.hasReversedSuits()) {
+      return reversible.isCardCritical(this);
     }
 
     const num = getSpecificCardNum(this.suit, this.rank);
@@ -965,10 +1062,10 @@ export default class HanabiCard extends Konva.Group {
       }
     }
 
-    // Determining if the card needs to be played in the "Up or Down" variants
-    // is more complicated
-    if (globals.variant.name.startsWith('Up or Down')) {
-      return this.upOrDownNeedsToBePlayed();
+    // Determining if the card needs to be played in variants with reversed suits is more
+    // complicated
+    if (reversible.hasReversedSuits()) {
+      return reversible.needsToBePlayed(this);
     }
 
     // Second, check to see if it is still possible to play this card
@@ -985,106 +1082,10 @@ export default class HanabiCard extends Konva.Group {
     return true;
   }
 
-  // upOrDownNeedsToBePlayed returns true if this card still needs to be played
-  // in order to get the maximum score (taking into account the stack direction)
-  // (before getting here, we already checked to see if the card has already been played)
-  upOrDownNeedsToBePlayed() {
-    // First, check to see if the stack is already finished
-    const suit = suitToMsgSuit(this.suit!, globals.variant);
-    if (globals.stackDirections[suit] === STACK_DIRECTION.FINISHED) {
-      return false;
-    }
-
-    // Second, check to see if this card is dead
-    // (meaning that all of a previous card in the suit have been discarded already)
-    if (this.upOrDownIsDead()) {
-      return false;
-    }
-
-    // All 2's, 3's, and 4's must be played
-    if (this.rank === 2 || this.rank === 3 || this.rank === 4) {
-      return true;
-    }
-
-    if (this.rank === 1) {
-      // 1's do not need to be played if the stack is going up
-      if (globals.stackDirections[suit] === STACK_DIRECTION.UP) {
-        return false;
-      }
-    } else if (this.rank === 5) {
-      // 5's do not need to be played if the stack is going down
-      if (globals.stackDirections[suit] === STACK_DIRECTION.DOWN) {
-        return false;
-      }
-    } else if (this.rank === START_CARD_RANK) {
-      // START cards do not need to be played if there are any cards played on the stack
-      const playStack = globals.elements.playStacks.get(this.suit!)!;
-      const lastPlayedRank = playStack.getLastPlayedRank();
-      if (lastPlayedRank !== STACK_BASE_RANK) {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  // upOrDownIsDead returns true if it is no longer possible to play this card by
-  // looking to see if all of the previous cards in the stack have been discarded
-  // (taking into account the stack direction)
-  upOrDownIsDead() {
-    // Make a map that shows if all of some particular rank in this suit has been discarded
-    const ranks = globals.variant.ranks.slice();
-    const allDiscarded = new Map();
-    for (const rank of ranks) {
-      const num = getSpecificCardNum(this.suit!, rank);
-      allDiscarded.set(rank, num.total === num.discarded);
-    }
-
-    // Start by handling the easy cases of up and down
-    const suit = suitToMsgSuit(this.suit!, globals.variant);
-    if (globals.stackDirections[suit] === STACK_DIRECTION.UP) {
-      for (let rank = 2; rank < this.rank!; rank++) {
-        if (allDiscarded.get(rank)) {
-          return true;
-        }
-      }
-      return false;
-    }
-    if (globals.stackDirections[suit] === STACK_DIRECTION.DOWN) {
-      for (let rank = 4; rank > this.rank!; rank--) {
-        if (allDiscarded.get(rank)) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    // If we got this far, the stack direction is undecided
-    // (the previous function handles the case where the stack is finished)
-    // Check to see if the entire suit is dead in the case where
-    // all 3 of the start cards are discarded
-    if (allDiscarded.get(1) && allDiscarded.get(5) && allDiscarded.get(START_CARD_RANK)) {
-      return true;
-    }
-
-    // If the "START" card is played on the stack,
-    // then this card will be dead if all of the 2's and all of the 4's have been discarded
-    // (this situation also applies to 3's when no cards have been played on the stack)
-    const playStack = globals.elements.playStacks.get(this.suit!)!;
-    const lastPlayedRank = playStack.getLastPlayedRank();
-    if (lastPlayedRank === START_CARD_RANK || this.rank === 3) {
-      if (allDiscarded.get(2) && allDiscarded.get(4)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
   isPotentiallyPlayable() {
     // Calculating this in an Up or Down variant is more complicated
-    if (globals.variant.name.startsWith('Up or Down')) {
-      return this.upOrDownIsPotentiallyPlayable();
+    if (reversible.hasReversedSuits()) {
+      return reversible.isPotentiallyPlayable(this);
     }
 
     let potentiallyPlayable = false;
@@ -1105,74 +1106,6 @@ export default class HanabiCard extends Konva.Group {
       if (count > 0) {
         potentiallyPlayable = true;
         break;
-      }
-    }
-
-    return potentiallyPlayable;
-  }
-
-  upOrDownIsPotentiallyPlayable() {
-    let potentiallyPlayable = false;
-    for (let i = 0; i < globals.variant.suits.length; i++) {
-      const suit = globals.variant.suits[i];
-      const playStack = globals.elements.playStacks.get(suit)!;
-      const lastPlayedRank = playStack.getLastPlayedRank();
-
-      if (globals.stackDirections[i] === STACK_DIRECTION.UNDECIDED) {
-        if (lastPlayedRank === STACK_BASE_RANK) {
-          // The "START" card has not been played
-          for (const rank of [START_CARD_RANK, 1, 5]) {
-            const count = this.possibleCards.get(`${suit.name}${rank}`);
-            if (typeof count === 'undefined') {
-              throw new Error(`Failed to get an entry for ${suit.name}${rank} from the "possibleCards" map for card ${this.order}.`);
-            }
-            if (count > 0) {
-              potentiallyPlayable = true;
-              break;
-            }
-          }
-          if (potentiallyPlayable) {
-            break;
-          }
-        } else if (lastPlayedRank === START_CARD_RANK) {
-          // The "START" card has been played
-          for (const rank of [2, 4]) {
-            const count = this.possibleCards.get(`${suit.name}${rank}`);
-            if (typeof count === 'undefined') {
-              throw new Error(`Failed to get an entry for ${suit.name}${rank} from the "possibleCards" map for card ${this.order}.`);
-            }
-            if (count > 0) {
-              potentiallyPlayable = true;
-              break;
-            }
-          }
-          if (potentiallyPlayable) {
-            break;
-          }
-        }
-      } else if (globals.stackDirections[i] === STACK_DIRECTION.UP) {
-        const nextRankNeeded = lastPlayedRank + 1;
-        const count = this.possibleCards.get(`${suit.name}${nextRankNeeded}`);
-        if (typeof count === 'undefined') {
-          throw new Error(`Failed to get an entry for ${suit.name}${nextRankNeeded} from the "possibleCards" map for card ${this.order}.`);
-        }
-        if (count > 0) {
-          potentiallyPlayable = true;
-          break;
-        }
-      } else if (globals.stackDirections[i] === STACK_DIRECTION.DOWN) {
-        const nextRankNeeded = lastPlayedRank - 1;
-        const count = this.possibleCards.get(`${suit.name}${nextRankNeeded}`);
-        if (typeof count === 'undefined') {
-          throw new Error(`Failed to get an entry for ${suit.name}${nextRankNeeded} from the "possibleCards" map for card ${this.order}.`);
-        }
-        if (count > 0) {
-          potentiallyPlayable = true;
-          break;
-        }
-      } else if (globals.stackDirections[i] === STACK_DIRECTION.FINISHED) {
-        // Nothing can play on this stack because it is finished
-        continue;
       }
     }
 
@@ -1235,16 +1168,19 @@ const removeDuplicatesFromArray = (array: any[]) => array.filter(
 // as well as how many of those that have been already discarded
 // (this DOES NOT mirror the server function in "game.go",
 // because the client does not have the full deck)
-const getSpecificCardNum = (suit: Suit, rank: number) => {
+export const getSpecificCardNum = (suit: Suit, rank: number) => {
   // First, find out how many of this card should be in the deck, based on the rules of the game
   let total = 0;
   if (rank === 1) {
     total = 3;
-    if (globals.variant.name.startsWith('Up or Down')) {
+    if (reversible.isUpOrDown() || suit.reversed) {
       total = 1;
     }
   } else if (rank === 5) {
     total = 1;
+    if (suit.reversed) {
+      total = 3;
+    }
   } else if (rank === START_CARD_RANK) {
     total = 1;
   } else {

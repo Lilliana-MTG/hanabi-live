@@ -2,6 +2,7 @@
 import Konva from 'konva';
 import { ACTION, REPLAY_ARROW_ORDER, TOOLTIP_DELAY } from '../../constants';
 import { timerFormatter } from '../../misc';
+import * as misc from '../../misc';
 import * as arrows from './arrows';
 import globals from './globals';
 import * as tooltips from './tooltips';
@@ -152,15 +153,36 @@ export default class Deck extends Konva.Group {
     let content = '<span style="font-size: 0.75em;"><i class="fas fa-info-circle fa-sm"></i> ';
     content += '&nbsp;This is the deck, which shows the number of cards remaining.</span>';
     content += '<br /><br />';
-    content += '<strong>Game Options:</strong>';
+    content += '<strong>Game Info:</strong>';
     content += '<ul class="game-tooltips-ul">';
+
+    if (globals.replay) {
+      const formattedDatetimeFinished = misc.dateTimeFormatter.format(
+        new Date(globals.datetimeFinished),
+      );
+      content += '<li><span class="game-tooltips-icon"><i class="fas fa-calendar"></i></span>';
+      content += `&nbsp; Date Played: &nbsp;<strong>${formattedDatetimeFinished}</strong></li>`;
+
+      const startedDate = new Date(globals.datetimeStarted);
+      const finishedDate = new Date(globals.datetimeFinished);
+      const elapsedMilliseconds = finishedDate.getTime() - startedDate.getTime();
+      const clockString = misc.millisecondsToClockString(elapsedMilliseconds);
+      content += '<li><span class="game-tooltips-icon"><i class="fas fa-stopwatch"></i></span>';
+      content += `&nbsp; Game Length: &nbsp;<strong>${clockString}</strong></li>`;
+    }
+
+    if (globals.replay || globals.seeded) {
+      content += '<li><span class="game-tooltips-icon"><i class="fas fa-seedling"></i></span>';
+      content += `&nbsp; Seed: &nbsp;<strong>${globals.seed}</strong></li>`;
+    }
+
     content += '<li><span class="game-tooltips-icon"><i class="fas fa-rainbow"></i></span>';
     content += `&nbsp; Variant: &nbsp;<strong>${globals.variant.name}</strong></li>`;
 
     if (globals.timed) {
       content += '<li><span class="game-tooltips-icon"><i class="fas fa-clock"></i></span>';
       content += '&nbsp; Timed: ';
-      content += timerFormatter(globals.baseTime * 1000);
+      content += timerFormatter(globals.timeBase * 1000);
       content += ' + ';
       content += timerFormatter(globals.timePerTurn * 1000);
       content += '</li>';

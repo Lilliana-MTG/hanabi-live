@@ -2,17 +2,22 @@ package main
 
 import (
 	"errors"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
 )
 
+var (
+	seedRegexp = regexp.MustCompile(`p\dv\d+s(\d+)`)
+)
+
 func (g *Game) End() {
 	// Local variables
 	t := g.Table
 
-	t.DatetimeFinished = time.Now()
+	g.DatetimeFinished = time.Now()
 	if g.EndCondition > EndConditionNormal {
 		g.Score = 0
 	}
@@ -57,7 +62,7 @@ func (g *Game) End() {
 	}
 
 	// Send a text message showing how much time the game took in total
-	totalTime := t.DatetimeFinished.Sub(t.DatetimeStarted)
+	totalTime := g.DatetimeFinished.Sub(g.DatetimeStarted)
 	text := "The total game duration was: " + durationToString(totalTime)
 	g.Actions = append(g.Actions, ActionText{
 		Type: "text",
@@ -65,53 +70,6 @@ func (g *Game) End() {
 	})
 	t.NotifyGameAction()
 	logger.Info(t.GetName() + text)
-
-	// In speedruns, send a text message to show how close to the record they got
-	if g.Options.Speedrun &&
-		len(g.Players) != 6 && // 6-player games are not official
-		stringInSlice(g.Options.Variant, officialSpeedrunVariants) {
-
-		seconds := int(totalTime.Seconds())
-		fastestTime := fastestTimes[g.Options.Variant][len(g.Players)]
-		text := ""
-		if seconds == fastestTime {
-			text = "You tied the world record!"
-		} else if seconds > fastestTime {
-			// Only bother showing how close the players came
-			// if they were within 60 seconds of the world record
-			diff := seconds - fastestTime
-			if diff <= 60 {
-				text = "You were slower than the world record by " +
-					strconv.Itoa(diff) + " seconds."
-			}
-		} else if seconds < fastestTime && g.Score == variants[g.Options.Variant].MaxScore {
-			// Update the new fastest time
-			fastestTimes[g.Options.Variant][len(g.Players)] = seconds
-
-			g.Sound = "new_record"
-			t.NotifySound()
-
-			diff := fastestTime - seconds
-			text = "You beat the best time by " + strconv.Itoa(diff) + " seconds!"
-			g.Actions = append(g.Actions, ActionText{
-				Type: "text",
-				Text: text,
-			})
-			t.NotifyGameAction()
-			logger.Info(t.GetName() + text)
-
-			text = "Congratulations on a new world record!"
-		}
-
-		if text != "" {
-			g.Actions = append(g.Actions, ActionText{
-				Type: "text",
-				Text: text,
-			})
-			t.NotifyGameAction()
-			logger.Info(t.GetName() + text)
-		}
-	}
 
 	// Advance a turn so that the finishing times are separated from the final action of the game
 	g.Turn++
@@ -173,19 +131,31 @@ func (g *Game) End() {
 	}
 	sort.Strings(playerNamesSlice)
 	playerNames := strings.Join(playerNamesSlice, ", ")
-	h := make([]*GameHistory, 0)
-	h = append(h, &GameHistory{
-		ID:               g.ID, // Recorded in the "WriteDatabase()" function above
-		NumPlayers:       len(g.Players),
-		NumSimilar:       numSimilar,
-		Score:            g.Score,
-		DatetimeFinished: t.DatetimeFinished,
-		Variant:          g.Options.Variant,
-		PlayerNames:      playerNames,
+	gameHistoryList := make([]*GameHistory, 0)
+	gameHistoryList = append(gameHistoryList, &GameHistory{
+		ID:                   g.ID, // Recorded in the "WriteDatabase()" function above
+		NumPlayers:           len(g.Players),
+		Variant:              g.Options.Variant,
+		Timed:                g.Options.Timed,
+		TimeBase:             g.Options.TimeBase,
+		TimePerTurn:          g.Options.TimePerTurn,
+		Speedrun:             g.Options.Speedrun,
+		CardCycle:            g.Options.CardCycle,
+		DeckPlays:            g.Options.DeckPlays,
+		EmptyClues:           g.Options.EmptyClues,
+		CharacterAssignments: g.Options.CharacterAssignments,
+		Seed:                 g.Seed,
+		Score:                g.Score,
+		NumTurns:             g.Turn,
+		EndCondition:         g.EndCondition,
+		DatetimeStarted:      g.DatetimeStarted,
+		DatetimeFinished:     g.DatetimeFinished,
+		NumSimilar:           numSimilar,
+		PlayerNames:          playerNames,
+		IncrementNumGames:    true,
 	})
 	for _, p := range t.Players {
-		// The second argument tells the client to increment the total number of games played
-		p.Session.NotifyGameHistory(h, true)
+		p.Session.Emit("gameHistory", &gameHistoryList)
 	}
 
 	// All games are automatically converted to shared replays after they finish
@@ -199,10 +169,9 @@ func (g *Game) WriteDatabase() error {
 	row := GameRow{
 		Name:                 t.Name,
 		NumPlayers:           len(g.Players),
-		Owner:                t.Owner,
 		Variant:              variants[g.Options.Variant].ID,
 		Timed:                g.Options.Timed,
-		TimeBase:             g.Options.BaseTime,
+		TimeBase:             g.Options.TimeBase,
 		TimePerTurn:          g.Options.TimePerTurn,
 		Speedrun:             g.Options.Speedrun,
 		CardCycle:            g.Options.CardCycle,
@@ -213,9 +182,8 @@ func (g *Game) WriteDatabase() error {
 		Score:                g.Score,
 		NumTurns:             g.Turn,
 		EndCondition:         g.EndCondition,
-		DatetimeCreated:      t.DatetimeCreated,
-		DatetimeStarted:      t.DatetimeStarted,
-		DatetimeFinished:     t.DatetimeFinished,
+		DatetimeStarted:      g.DatetimeStarted,
+		DatetimeFinished:     g.DatetimeFinished,
 	}
 	if v, err := models.Games.Insert(row); err != nil {
 		logger.Error("Failed to insert the game row:", err)
@@ -267,7 +235,8 @@ func (g *Game) WriteDatabase() error {
 			if err := models.GameParticipantNotes.Insert(p.ID, g.ID, j, note); err != nil {
 				logger.Error("Failed to insert the row for note #"+strconv.Itoa(j)+
 					" for game participant #"+strconv.Itoa(i)+":", err)
-				return err
+				// Do not return on failed note insertion,
+				// since it should not affect subsequent operations
 			}
 		}
 	}
@@ -310,12 +279,22 @@ func (g *Game) WriteDatabase() error {
 		}
 	}
 
-	// Next, we insert rows for each chat message
+	// Next, we insert rows for each chat message (if any)
 	for _, chatMsg := range t.Chat {
 		room := "table" + strconv.Itoa(t.ID)
 		if err := models.ChatLog.Insert(chatMsg.UserID, chatMsg.Msg, room); err != nil {
 			logger.Error("Failed to insert a chat message into the database:", err)
-			return err
+			// Do not return on failed chat insertion,
+			// since it should not affect subsequent operations
+		}
+	}
+
+	// Next, we insert rows for each tag (if any)
+	for tag := range g.Tags {
+		if err := models.GameTags.Insert(g.ID, tag); err != nil {
+			logger.Error("Failed to insert a tag into the database:", err)
+			// Do not return on failed tag insertion,
+			// since it should not affect subsequent operations
 		}
 	}
 
@@ -325,7 +304,7 @@ func (g *Game) WriteDatabase() error {
 		var stats UserStatsRow
 		if v, err := models.UserStats.Get(p.ID, variants[g.Options.Variant].ID); err != nil {
 			logger.Error("Failed to get the stats for user "+p.Name+":", err)
-			return err
+			continue
 		} else {
 			stats = v
 		}
@@ -357,7 +336,7 @@ func (g *Game) WriteDatabase() error {
 		// we still want to update their average score and strikeout rate)
 		if err := models.UserStats.Update(p.ID, variants[g.Options.Variant].ID, stats); err != nil {
 			logger.Error("Failed to update the stats for user "+p.Name+":", err)
-			return err
+			continue
 		}
 	}
 
@@ -397,6 +376,47 @@ func (g *Game) WriteDatabase() error {
 	return nil
 }
 
+func (g *Game) GetAnnouncementString() string {
+	// Make the list of names
+	playerList := make([]string, 0)
+	for _, p := range g.Players {
+		playerList = append(playerList, p.Name)
+	}
+	msg := "[" + strings.Join(playerList, ", ") + "] "
+	if g.EndCondition == EndConditionTerminated {
+		msg += "terminated"
+	} else {
+		msg += "finished"
+	}
+	msg += " a"
+	firstLetter := strings.ToLower(g.Options.Variant)[0]
+	if firstLetter == 'a' ||
+		firstLetter == 'e' ||
+		firstLetter == 'i' ||
+		firstLetter == 'o' ||
+		firstLetter == 'u' {
+
+		msg += "n"
+	}
+	msg += " " + g.Options.Variant + " game"
+	if g.EndCondition == EndConditionTerminated {
+		msg += ". "
+	} else {
+		msg += " with a score of " + strconv.Itoa(g.Score) + ". "
+	}
+	msg += "(id: " + strconv.Itoa(g.ID) + ", "
+	// Instead of displaying the full seed (e.g. "p2v0s1"), only communicate the final number suffix
+	match := seedRegexp.FindStringSubmatch(g.Seed)
+	if match == nil {
+		logger.Error("Failed to parse the seed of \"" + g.Seed + " \" " +
+			"when ending game " + strconv.Itoa(g.ID))
+		return ""
+	}
+	msg += "seed: " + match[1] + ")"
+
+	return msg
+}
+
 func (t *Table) ConvertToSharedReplay() {
 	g := t.Game
 
@@ -414,8 +434,6 @@ func (t *Table) ConvertToSharedReplay() {
 		// Skip offline players and players in the lobby;
 		// if they re-login, then they will just stay in the lobby
 		if !p.Present {
-			logger.Info("Skipped converting " + p.Name +
-				" to a spectator since they are not present.")
 			if p.ID == t.Owner && (p.Session == nil || p.Session.IsClosed()) {
 				// We don't want to pass the replay leader away if they are still in the lobby
 				// (as opposed to being offline)
@@ -429,8 +447,6 @@ func (t *Table) ConvertToSharedReplay() {
 		// If this game was ended due to idleness,
 		// skip conversion so that the shared replay gets deleted below
 		if g.EndCondition == EndConditionIdleTimeout {
-			logger.Info("Skipped converting " + p.Name + " to a spectator " +
-				"since the game ended due to idleness.")
 			continue
 		}
 

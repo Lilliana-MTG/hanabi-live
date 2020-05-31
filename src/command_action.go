@@ -55,7 +55,7 @@ func commandAction(s *Session, d *CommandData) {
 
 	// Validate that the game has started
 	if !t.Running {
-		s.Warning("The game for table " + strconv.Itoa(tableID) + " has not started yet.")
+		s.Warning(ChatCommandNotStartedFail)
 		return
 	}
 
@@ -288,8 +288,7 @@ func commandActionDiscard(s *Session, d *CommandData, g *Game, p *GamePlayer) bo
 		clueLimit *= 2
 	}
 	if g.ClueTokens == clueLimit {
-		s.Warning("You cannot discard while the team has " + strconv.Itoa(MaxClueNum) +
-			" clues.")
+		s.Warning("You cannot discard while the team has " + strconv.Itoa(MaxClueNum) + " clues.")
 		g.InvalidActionOccurred = true
 		return false
 	}

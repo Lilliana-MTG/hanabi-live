@@ -22,9 +22,9 @@ import {
   ActionTurn,
 } from './actions';
 import * as arrows from './arrows';
+import cardStatusCheck from './cardStatusCheck';
 import ClueEntry from './ClueEntry';
 import { msgClueToClue, msgSuitToSuit } from './convert';
-import fadeCheck from './fadeCheck';
 import globals from './globals';
 import HanabiCard from './HanabiCard';
 import LayoutChild from './LayoutChild';
@@ -32,6 +32,7 @@ import possibilitiesCheck from './possibilitiesCheck';
 import * as stats from './stats';
 import strikeRecord from './strikeRecord';
 import updateCurrentPlayerArea from './updateCurrentPlayerArea';
+import * as reversible from './variants/reversible';
 
 // The server has sent us a new game action
 // (either during an ongoing game or as part of a big list that was sent upon loading a new
@@ -82,7 +83,7 @@ actionFunctions.set('clue', (data: ActionClue) => {
 
     arrows.set(i, card, data.giver, clue);
 
-    card.setClued(true);
+    card.setClued();
     if (
       !globals.lobby.settings.realLifeMode
       && !globals.variant.name.startsWith('Cow & Pig')
@@ -192,7 +193,7 @@ actionFunctions.set('discard', (data: ActionDiscard) => {
 
   card.reveal(data.which.suit, data.which.rank);
   card.removeFromParent();
-  card.setClued(false);
+  card.setClued();
 
   if (card.isMisplayed && !globals.animateFast && !globals.speedrun) {
     // If this card was misplayed,
@@ -203,8 +204,8 @@ actionFunctions.set('discard', (data: ActionDiscard) => {
     card.animateToDiscardPile();
   }
 
-  // The fact that this card was discarded could make some other cards useless
-  fadeCheck();
+  // The fact that this card was discarded could make some other cards useless or critical
+  cardStatusCheck();
 
   if (card.isClued()) {
     stats.updateEfficiency(-1);
@@ -250,7 +251,8 @@ actionFunctions.set('draw', (data: ActionDraw) => {
   // players, then suit and rank will be still be null for the cards that were dealt to us
   // Since we are in a shared replay, this is a mistake, because we should have full knowledge of
   // what the card is (from the "deckOrder" message that is sent at the end of the game)
-  if (globals.deckOrder.length !== 0) {
+  // The exception is when we are in a hypothetical and "hypoRevealed" is turned off
+  if (globals.deckOrder.length !== 0 && (!globals.hypothetical || globals.hypoRevealed)) {
     if (suit === null) {
       const suitNum = globals.deckOrder[order].suit;
       suit = msgSuitToSuit(suitNum, globals.variant);
@@ -312,7 +314,6 @@ actionFunctions.set('draw', (data: ActionDraw) => {
   // If this card is known,
   // then remove it from the card possibilities for the players who see this card
   if (suit && rank) {
-    card.identityDetermined = true;
     if (possibilitiesCheck()) {
       for (let i = 0; i < globals.elements.playerHands.length; i++) {
         if (i === holder) {
@@ -336,17 +337,19 @@ actionFunctions.set('play', (data: ActionPlay) => {
 
   card.isPlayed = true;
   card.turnPlayed = globals.turn;
+  globals.numCardsPlayed += 1;
+  globals.elements.playsNumberLabel!.text(globals.numCardsPlayed.toString());
 
   // Clear all visible arrows when a new move occurs
   arrows.hideAll();
 
   card.reveal(data.which.suit, data.which.rank);
   card.removeFromParent();
-  card.setClued(false);
+  card.setClued();
   card.animateToPlayStacks();
 
-  // The fact that this card was played could make some other cards useless
-  fadeCheck();
+  // The fact that this card was played could make some other cards useless or critical
+  cardStatusCheck();
 
   if (!card.isClued()) {
     stats.updateEfficiency(1);
@@ -387,26 +390,47 @@ actionFunctions.set('reorder', (data: ActionReorder) => {
 });
 
 actionFunctions.set('stackDirections', (data: ActionStackDirections) => {
-  // Update the stack directions (only in "Up or Down" variants)
+  if (!reversible.hasReversedSuits()) {
+    return;
+  }
+
+  // Update the stack directions (which are only used in the "Up or Down" and "Reversed" variants)
+  const oldStackDirectionse = globals.stackDirections.slice(); // Make a copy of the array
   globals.stackDirections = data.directions;
-  if (globals.variant.name.startsWith('Up or Down')) {
-    for (let i = 0; i < globals.stackDirections.length; i++) {
-      const direction = globals.stackDirections[i];
-      let text;
-      if (direction === STACK_DIRECTION.UNDECIDED) {
-        text = '';
-      } else if (direction === STACK_DIRECTION.UP) {
-        text = 'Up';
-      } else if (direction === STACK_DIRECTION.DOWN) {
-        text = 'Down';
-      } else if (direction === STACK_DIRECTION.FINISHED) {
+  for (let i = 0; i < globals.stackDirections.length; i++) {
+    const stackDirection = globals.stackDirections[i];
+    if (stackDirection === oldStackDirectionse[i]) {
+      continue;
+    }
+
+    const suit = globals.variant.suits[i];
+    let text;
+    if (stackDirection === STACK_DIRECTION.UNDECIDED) {
+      text = '';
+    } else if (stackDirection === STACK_DIRECTION.UP) {
+      text = reversible.isUpOrDown() ? 'Up' : '';
+    } else if (stackDirection === STACK_DIRECTION.DOWN) {
+      text = reversible.isUpOrDown() ? 'Down' : 'Reversed';
+    } else if (stackDirection === STACK_DIRECTION.FINISHED) {
+      if (reversible.isUpOrDown()) {
         text = 'Finished';
+      } else if (suit.reversed) {
+        text = 'Reversed';
       } else {
-        text = 'Unknown';
+        text = '';
       }
-      globals.elements.suitLabelTexts[i].fitText(text);
-      if (!globals.animateFast) {
-        globals.layers.UI.batchDraw();
+    } else {
+      text = 'Unknown';
+    }
+
+    globals.elements.suitLabelTexts[i].fitText(text);
+    if (!globals.animateFast) {
+      globals.layers.UI.batchDraw();
+    }
+
+    for (const card of globals.deck) {
+      if (card.suit === suit) {
+        card.setDirectionArrow();
       }
     }
   }
@@ -455,9 +479,6 @@ actionFunctions.set('status', (data: ActionStatus) => {
   // Update the score (in the bottom-right-hand corner)
   const scoreLabel = globals.elements.scoreNumberLabel!;
   scoreLabel.text(globals.score.toString());
-  if (globals.variant.name.startsWith('Throw It in a Hole') && !globals.replay) {
-    scoreLabel.text('?');
-  }
 
   // Reposition the maximum score
   const maxScoreLabel = globals.elements.maxScoreNumberLabel!;
@@ -564,6 +585,14 @@ actionFunctions.set('turn', (data: ActionTurn) => {
 
   // Update the current player in the middle of the screen
   updateCurrentPlayerArea();
+
+  // Show the black rectangle over the hand that signifies that it is their turn
+  if (globals.currentPlayerIndex !== -1) {
+    for (const rect of globals.elements.playerHandTurnRects) {
+      rect.hide();
+    }
+    globals.elements.playerHandTurnRects[globals.currentPlayerIndex].show();
+  }
 
   // If there are no cards left in the deck, update the "Turns left: #" label
   if (globals.deckSize === 0) {

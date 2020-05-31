@@ -40,12 +40,12 @@ export const CLUE_TYPE = {
 export const REPLAY_ACTION_TYPE = {
   TURN: 0,
   ARROW: 1,
-  LEADER_TRANSFER: 2,
-  SOUND: 3,
-  HYPO_START: 4,
-  HYPO_END: 5,
-  HYPO_ACTION: 6,
-  HYPO_BACK: 7,
+  SOUND: 2,
+  HYPO_START: 3,
+  HYPO_END: 4,
+  HYPO_ACTION: 5,
+  HYPO_BACK: 6,
+  HYPO_TOGGLE_REVEALED: 7,
 };
 export const REPLAY_ARROW_ORDER = {
   DECK: -1,
@@ -54,7 +54,7 @@ export const REPLAY_ARROW_ORDER = {
   EFFICIENCY: -4,
   MIN_EFFICIENCY: -5,
 };
-export const STACK_DIRECTION = { // Used in the "Up or Down" variants
+export const STACK_DIRECTION = { // Used in the "Up or Down" and "Reversed" variants
   UNDECIDED: 0,
   UP: 1,
   DOWN: 2,
@@ -65,6 +65,8 @@ export const UNKNOWN_CARD_RANK = 6;
 export const START_CARD_RANK = 7;
 export const MAX_CLUE_NUM = 8;
 export const SHUTDOWN_TIMEOUT = 30; // In minutes
+
+export const SUIT_REVERSED_SUFFIX = '-Reversed';
 
 const COLORS = colorsInit();
 const SUITS = suitsInit(COLORS);

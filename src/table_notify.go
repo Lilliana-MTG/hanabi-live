@@ -1,9 +1,5 @@
 package main
 
-import (
-	"strings"
-)
-
 /*
 	Notifications for both before and during a game
 */
@@ -46,8 +42,7 @@ func (t *Table) NotifyChatTyping(name string, typing bool) {
 // This is only called in situations where the game has not started yet
 func (t *Table) NotifyPlayerChange() {
 	if t.Running {
-		logger.Error("The \"NotifyPlayerChange()\" function was called on a game that " +
-			"has already started.")
+		logger.Error("The \"NotifyPlayerChange()\" function was called on a game that has already started.")
 		return
 	}
 
@@ -83,7 +78,7 @@ func (t *Table) NotifyPlayerChange() {
 			Players              []*GamePlayerMessage `json:"players"`
 			Variant              string               `json:"variant"`
 			Timed                bool                 `json:"timed"`
-			BaseTime             int                  `json:"baseTime"`
+			TimeBase             int                  `json:"timeBase"`
 			TimePerTurn          int                  `json:"timePerTurn"`
 			Speedrun             bool                 `json:"speedrun"`
 			CardCycle            bool                 `json:"cardCycle"`
@@ -98,7 +93,7 @@ func (t *Table) NotifyPlayerChange() {
 			Players:              gamePlayers,
 			Variant:              t.Options.Variant,
 			Timed:                t.Options.Timed,
-			BaseTime:             t.Options.BaseTime,
+			TimeBase:             t.Options.TimeBase,
 			TimePerTurn:          t.Options.TimePerTurn,
 			Speedrun:             t.Options.Speedrun,
 			CardCycle:            t.Options.CardCycle,
@@ -119,8 +114,7 @@ func (t *Table) NotifyPlayerChange() {
 // This is never called in replays
 func (t *Table) NotifyConnected() {
 	if !t.Running {
-		logger.Error("The \"NotifyConnected()\" function was called on a game that " +
-			"has not started yet.")
+		logger.Error("The \"NotifyConnected()\" function was called on a game that has not started yet.")
 		return
 	}
 
@@ -168,8 +162,15 @@ func (t *Table) NotifyStatus() {
 	})
 	t.NotifyGameAction()
 
-	// If we are playing an "Up or Down" variant, we also need to send the stack directions
-	if strings.HasPrefix(t.Options.Variant, "Up or Down") {
+	// Also send updates on stack directions
+	t.NotifyStackDirections()
+}
+
+func (t *Table) NotifyStackDirections() {
+	g := t.Game
+
+	// If we are playing a "Reversed" or "Up or Down" variant, we also need to send the stack directions
+	if variants[g.Options.Variant].HasReversedSuits() {
 		// Since StackDirections is a slice, it will be stored as a pointer
 		// (unlike the primitive values that we used for the ActionStatus message above)
 		// So, make a copy to preserve the stack directions for this exact moment in time
@@ -322,29 +323,8 @@ func (t *Table) NotifyProgress() {
 		return
 	}
 
-	// We do not want to notify everyone, as that would constitute a lot of spam
-	// (e.g. everyone getting progress updates for every table)
-	// Only send the progress to:
-	// 1) players who are currently in the game
-	// 2) users that have players or spectators in this table on their friends list
-	notifyMap := make(map[int]struct{})
-	if !t.Replay {
-		for _, p := range t.Players {
-			notifyMap[p.ID] = struct{}{}
-			for userID := range p.Session.ReverseFriends() {
-				notifyMap[userID] = struct{}{}
-			}
-		}
-	}
-	for _, sp := range t.Spectators {
-		for userID := range sp.Session.ReverseFriends() {
-			notifyMap[userID] = struct{}{}
-		}
-	}
-	for userID := range notifyMap {
-		if s, ok := sessions[userID]; ok {
-			s.NotifyTableProgress(t)
-		}
+	for _, s := range t.GetNotifySessions() {
+		s.NotifyTableProgress(t)
 	}
 }
 

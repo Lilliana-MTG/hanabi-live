@@ -3,6 +3,7 @@
 
 // Imports
 import linkifyHtml from 'linkifyjs/html';
+import chatCommands from './chatCommands';
 import ChatMessage from './ChatMessage';
 import { FADE_TIME } from './constants';
 import emojis from './data/emojis.json';
@@ -67,9 +68,15 @@ const input = function input(this: HTMLElement, event: JQuery.Event) {
     }
   }
 
-  // Check for a PM reply
+  // /r - A PM reply
   if (text === '/r ' && globals.lastPM !== '') {
     element.val(`/pm ${globals.lastPM} `);
+    return;
+  }
+
+  // /shrug
+  if (text === '/shrug') {
+    element.val('¯\\_(ツ)_/¯');
     return;
   }
 
@@ -149,121 +156,9 @@ const submit = (room: string, element: JQuery<HTMLElement>) => {
     command = command!.substring(1); // Remove the forward slash
     command = command.toLowerCase();
 
-    if (command === 'pm' || command === 'w' || command === 'whisper' || command === 'msg') {
-      // Validate that the format of the command is correct
-      if (args.length < 2) {
-        modals.warningShow('The format of a private message is: <code>/w Alice hello</code>');
-        return;
-      }
-
-      let recipient = args[0];
-      args.shift(); // Remove the recipient
-
-      // Validate that they are not sending a private message to themselves
-      if (recipient.toLowerCase() === globals.username.toLowerCase()) {
-        modals.warningShow('You cannot send a private message to yourself.');
-        return;
-      }
-
-      // Validate that the receipient is online
-      let isOnline = false;
-      for (const user of globals.userMap.values()) {
-        if (user.name.toLowerCase() === recipient.toLowerCase()) {
-          isOnline = true;
-
-          // Overwrite the recipient in case the user capitalized the username wrong
-          recipient = user.name;
-
-          break;
-        }
-      }
-      if (!isOnline) {
-        modals.warningShow(`User "${recipient}" is not currently online.`);
-        return;
-      }
-
-      globals.conn!.send('chatPM', {
-        msg: args.join(' '),
-        recipient,
-        room,
-      });
-      return;
-    }
-
-    if (command === 'friend') {
-      // Validate that the format of the command is correct
-      if (args.length < 1) {
-        modals.warningShow('The format of the /friend command is: <code>/friend Alice</code>');
-        return;
-      }
-
-      // Validate that we are not targeting ourselves
-      const name = args.join(' ');
-      if (name.toLowerCase() === globals.username.toLowerCase()) {
-        modals.warningShow('You cannot friend yourself.');
-      }
-
-      globals.conn!.send('chatFriend', {
-        name,
-      });
-      return;
-    }
-
-    if (command === 'friends') {
-      let friendsMsg;
-      if (globals.friends.length === 0) {
-        friendsMsg = 'Currently, you do not have any friends on your friends list.';
-      } else {
-        friendsMsg = `Current friends: ${globals.friends.join(', ')}`;
-      }
-      add({
-        msg: friendsMsg,
-        who: '',
-        server: true,
-        datetime: new Date().getTime(),
-        room,
-        recipient: '', // This is needed to prevent the message from being viewed as a PM
-      }, false);
-      return;
-    }
-
-    if (command === 'unfriend') {
-      // Validate that the format of the command is correct
-      if (args.length < 1) {
-        modals.warningShow('The format of the /unfriend command is: <code>/unfriend Alice</code>');
-        return;
-      }
-
-      // Validate that we are not targeting ourselves
-      const name = args.join(' ');
-      if (name.toLowerCase() === globals.username.toLowerCase()) {
-        modals.warningShow('You cannot unfriend yourself.');
-      }
-
-      globals.conn!.send('chatUnfriend', {
-        name,
-      });
-      return;
-    }
-
-    if (command === 'version') {
-      add({
-        msg: `You are running version <strong>${globals.version}</strong> of the Hanabi Live client.`,
-        who: '',
-        server: true,
-        datetime: new Date().getTime(),
-        room,
-        recipient: '', // This is needed to prevent the message from being viewed as a PM
-      }, false);
-      return;
-    }
-
-    if (command === 'warning') {
-      let warning = args.join(' ');
-      if (warning === '') {
-        warning = 'This is a warning!';
-      }
-      modals.warningShow(warning);
+    const chatCommandFunction = chatCommands.get(command);
+    if (typeof chatCommandFunction !== 'undefined') {
+      chatCommandFunction(room, args);
       return;
     }
   }
@@ -549,6 +444,12 @@ const fillLocalEmotes = (message: string) => {
     const emoteTag = '<img class="chat-emote" src="/public/img/emotes/other/3.png" title="&lt;3" />';
     const re = new RegExp('&lt;3', 'g'); // "\b" won't work with a semicolon
     filledMessage = filledMessage.replace(re, emoteTag);
+  }
+  if (filledMessage.indexOf('D:') !== -1) {
+    const emoteTag = '<img class="chat-emote" src="/public/img/emotes/other/D.png" title="D:" />';
+    // From: https://stackoverflow.com/questions/4134605/regex-and-the-colon
+    const re = new RegExp(/(^|\s)D:(\s|$)/, 'g'); // "\b" won't work with a colon
+    filledMessage = filledMessage.replace(re, ` ${emoteTag} `); // We have to re-add the spaces
   }
 
   return filledMessage;
